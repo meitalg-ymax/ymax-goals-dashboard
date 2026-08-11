@@ -30,6 +30,8 @@ const EMPTY_METRICS: DivisionMetrics = {
 
 export type InvalidReason = { reason: string; count: number };
 
+export type RapidCategory = { category: string; division: Division | null; amount: number };
+
 export type DashboardData = {
   hasSyncedData: boolean;
   asOf: string | null;
@@ -38,6 +40,7 @@ export type DashboardData = {
   invalidReasons: Record<Division, InvalidReason[]>;
   targets: Record<Division, Record<string, number>>;
   rapidActuals: Record<Division, Record<string, number>>;
+  rapidCategories: RapidCategory[];
   daysElapsed: number;
   daysInMonth: number;
   workDaysElapsed: number;
@@ -64,12 +67,14 @@ export async function getDashboardData(): Promise<DashboardData> {
   const now = new Date();
   const monthStart = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}-01`;
 
-  const [{ data: metricRows }, { data: reasonRows }, { data: targetRows }, { data: rapidRows }] = await Promise.all([
-    supabase.from("zoho_metrics").select("division, metric, value, as_of").eq("month", monthStart),
-    supabase.from("zoho_invalid_lead_reasons").select("division, reason, count").eq("month", monthStart),
-    supabase.from("manual_entries").select("division, metric, value").eq("kind", "target").eq("month", monthStart),
-    supabase.from("manual_entries").select("division, metric, value").eq("kind", "rapid_actual").eq("month", monthStart),
-  ]);
+  const [{ data: metricRows }, { data: reasonRows }, { data: targetRows }, { data: rapidRows }, { data: categoryRows }] =
+    await Promise.all([
+      supabase.from("zoho_metrics").select("division, metric, value, as_of").eq("month", monthStart),
+      supabase.from("zoho_invalid_lead_reasons").select("division, reason, count").eq("month", monthStart),
+      supabase.from("manual_entries").select("division, metric, value").eq("kind", "target").eq("month", monthStart),
+      supabase.from("manual_entries").select("division, metric, value").eq("kind", "rapid_actual").eq("month", monthStart),
+      supabase.from("rapid_sales_categories").select("category, division, amount").eq("month", monthStart),
+    ]);
 
   const divisions = Object.fromEntries(
     DIVISIONS.map((d) => [d, { ...EMPTY_METRICS }])
@@ -125,6 +130,14 @@ export async function getDashboardData(): Promise<DashboardData> {
   const workDaysInMonth = workDaysBetween(monthDateObj, monthEndObj);
   const workDaysElapsed = workDaysBetween(monthDateObj, elapsedEndObj);
 
+  const rapidCategories = (categoryRows ?? [])
+    .map((row) => ({
+      category: row.category as string,
+      division: (row.division as Division | null) ?? null,
+      amount: row.amount as number,
+    }))
+    .sort((a, b) => b.amount - a.amount);
+
   return {
     hasSyncedData: (metricRows?.length ?? 0) > 0,
     asOf,
@@ -133,6 +146,7 @@ export async function getDashboardData(): Promise<DashboardData> {
     invalidReasons,
     targets,
     rapidActuals,
+    rapidCategories,
     daysElapsed,
     daysInMonth,
     workDaysElapsed,

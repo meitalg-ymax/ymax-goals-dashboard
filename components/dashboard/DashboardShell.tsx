@@ -5,7 +5,8 @@ import Link from "next/link";
 import { Tabbar, type TabDef } from "@/components/tabs/Tabbar";
 import { SignOutButton } from "@/components/SignOutButton";
 import { DivisionRealCard } from "@/components/dashboard/DivisionRealCard";
-import { OverviewRealCard } from "@/components/dashboard/OverviewRealCard";
+import { OverviewKadavTable } from "@/components/dashboard/OverviewKadavTable";
+import { RapidCategoryBreakdown } from "@/components/dashboard/RapidCategoryBreakdown";
 import type { DashboardData } from "@/lib/dashboard/getDashboardData";
 import { DIVISIONS, type Division } from "@/lib/zoho/transform";
 
@@ -74,16 +75,16 @@ export function DashboardShell({ data }: { data: DashboardData }) {
 
       {activeTab === "overview" && (
         <div className="tabpanel">
-          <OverviewRealCard
+          <OverviewKadavTable
             divisions={data.divisions}
-            asOf={data.asOf}
-            monthLabel={data.monthLabel}
             targets={data.targets}
+            rapidCategories={data.rapidCategories}
             daysElapsed={data.daysElapsed}
             daysInMonth={data.daysInMonth}
             workDaysElapsed={data.workDaysElapsed}
             workDaysInMonth={data.workDaysInMonth}
           />
+          <RapidCategoryBreakdown categories={data.rapidCategories} />
         </div>
       )}
 
