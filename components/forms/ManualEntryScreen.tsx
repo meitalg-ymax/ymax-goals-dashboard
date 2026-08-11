@@ -21,6 +21,7 @@ export function ManualEntryScreen({
   title,
   basePath,
   month,
+  initialDivision,
   metrics,
   groups,
   data,
@@ -29,12 +30,13 @@ export function ManualEntryScreen({
   title: string;
   basePath: string;
   month: string;
+  initialDivision?: Division;
   metrics: MetricDef[];
   groups: string[];
   data: ManualEntriesByDivision;
   onSave: (division: Division, values: Record<string, number>) => Promise<void>;
 }) {
-  const [activeDivision, setActiveDivision] = useState<Division>("ymax");
+  const [activeDivision, setActiveDivision] = useState<Division>(initialDivision ?? "ymax");
 
   return (
     <div className="wrap">

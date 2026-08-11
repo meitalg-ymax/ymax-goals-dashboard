@@ -118,6 +118,9 @@ export function DashboardShell({ data }: { data: DashboardData }) {
                     <h2>טבלה מפורטת — כמו באקסל</h2>
                     <span className="real-badge">✓ נתון חי</span>
                   </div>
+                  <Link className="source-chip" href={`/rapid?division=${division}`}>
+                    ✎ עדכון תקציב בפועל
+                  </Link>
                 </div>
                 <DivisionDetailTable
                   division={division}
@@ -132,8 +135,9 @@ export function DashboardShell({ data }: { data: DashboardData }) {
                 />
                 <p className="real-note">
                   מתחשב הכל אוטומטית מ-Zoho וראפיד, חוץ מ<strong style={{ color: "var(--ink)" }}>תקציב ממומן בפועל</strong>{" "}
-                  שמוזן ידנית ב&quot;הזנת נתונים ידניים&quot;. <strong style={{ color: "var(--ink)" }}>ירוקים (הפניות)</strong>{" "}
-                  מיובאים אוטומטית מדוח ראפיד, אך כלל-חברתי בלבד (לא מחולק לפי חטיבה) — ר&apos; מבט כללי.
+                  שמוזן ידנית ב<Link href={`/rapid?division=${division}`}>&quot;הזנת נתונים ידניים&quot;</Link> (הקישור
+                  למעלה ✎). <strong style={{ color: "var(--ink)" }}>ירוקים (הפניות)</strong> מיובאים אוטומטית מדוח
+                  ראפיד, אך כלל-חברתי בלבד (לא מחולק לפי חטיבה) — ר&apos; מבט כללי.
                 </p>
               </div>
             </div>

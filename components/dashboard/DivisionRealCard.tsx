@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { Division } from "@/lib/zoho/transform";
 import type { DivisionMetrics, InvalidReason } from "@/lib/dashboard/getDashboardData";
 import { formatCurrency, formatNumber } from "@/lib/metrics/format";
@@ -111,9 +112,14 @@ export function DivisionRealCard({
       />
 
       <div className="extra-revenue">
-        <p className="section-label" style={{ margin: 0 }}>
-          תקציב ועלות ליד
-        </p>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <p className="section-label" style={{ margin: 0 }}>
+            תקציב ועלות ליד
+          </p>
+          <Link className="source-chip" href={`/rapid?division=${division}`}>
+            ✎ עדכון תקציב בפועל
+          </Link>
+        </div>
         {!hasBudgetTarget ? (
           <div className="missing-card">
             <div className="mc-text">
@@ -167,8 +173,8 @@ export function DivisionRealCard({
           </div>
         </div>
         <p className="note-text">
-          תקציב בפועל מוזן ידנית ב&quot;הזנת נתונים ידניים&quot; (לא מסונכרן מ-Zoho). מחיר לליד בפועל = תקציב בפועל ÷
-          לידים ממומן בפועל.
+          תקציב בפועל מוזן ידנית ב<Link href={`/rapid?division=${division}`}>&quot;הזנת נתונים ידניים&quot;</Link> (לא
+          מסונכרן מ-Zoho). מחיר לליד בפועל = תקציב בפועל ÷ לידים ממומן בפועל.
         </p>
       </div>
 
