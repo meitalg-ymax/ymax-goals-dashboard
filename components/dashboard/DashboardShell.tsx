@@ -80,6 +80,7 @@ export function DashboardShell({ data }: { data: DashboardData }) {
             divisions={data.divisions}
             targets={data.targets}
             rapidCategories={data.rapidCategories}
+            companyTargets={data.companyTargets}
             daysElapsed={data.daysElapsed}
             daysInMonth={data.daysInMonth}
             workDaysElapsed={data.workDaysElapsed}

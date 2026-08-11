@@ -46,6 +46,7 @@ export function OverviewKadavTable({
   divisions,
   targets,
   rapidCategories,
+  companyTargets,
   daysElapsed,
   daysInMonth,
   workDaysElapsed,
@@ -54,6 +55,7 @@ export function OverviewKadavTable({
   divisions: Record<Division, DivisionMetrics>;
   targets: Record<Division, Record<string, number>>;
   rapidCategories: RapidCategory[];
+  companyTargets: Record<string, number>;
   daysElapsed: number;
   daysInMonth: number;
   workDaysElapsed: number;
@@ -122,8 +124,10 @@ export function OverviewKadavTable({
     return { division: d, leadsKadav, arrivalsKadav, closingsKadav, moneyKadav };
   });
 
+  const productsTarget = companyTargets.revenue_products ?? 0;
+
   grandMoneyActual += productsActual + referralsActualTotal;
-  grandMoneyTarget += referralsTargetTotal;
+  grandMoneyTarget += referralsTargetTotal + productsTarget;
 
   const referralsKadav = calcWorkdayKadav(
     referralsActualTotal,
@@ -131,6 +135,7 @@ export function OverviewKadavTable({
     workDaysElapsed,
     workDaysInMonth
   );
+  const productsKadav = calcWorkdayKadav(productsActual, productsTarget || undefined, workDaysElapsed, workDaysInMonth);
 
   const grandLeadsKadav = calcLeadsKadav(grandLeadsActual, grandLeadsTarget || undefined, daysElapsed, daysInMonth);
   const grandArrivalsKadav = calcWorkdayKadav(grandArrivalsActual, grandArrivalsTarget || undefined, workDaysElapsed, workDaysInMonth);
@@ -171,13 +176,7 @@ export function OverviewKadavTable({
           <p className="section-label" style={{ margin: "0 0 6px" }}>
             מוצרים וירוקים — כלל החברה
           </p>
-          <div className="real-row" style={{ gridTemplateColumns: COLS }}>
-            <span className="rname">מכירת מוצרים (כללי)</span>
-            <span>—</span>
-            <span>{formatCurrency(productsActual)}</span>
-            <span>—</span>
-            <span>—</span>
-          </div>
+          <Row label="מכירת מוצרים (כללי)" result={productsKadav} isCurrency />
           <Row label="ירוקים (הפניות)" result={referralsKadav} isCurrency />
         </div>
 
@@ -196,8 +195,8 @@ export function OverviewKadavTable({
         <strong style={{ color: "var(--ink)" }}>סה״כ כסף</strong> (לפי חטיבה) = הכנסות CRM (ממומן+אורגני+דיוור) + ספה
         ושדרוגים ששויכו לחטיבה. <strong style={{ color: "var(--ink)" }}>ירוקים (הפניות)</strong> מדווחים בדוח כלל-חברתי
         ללא פירוט לחטיבה, ולכן מוצגים כשורה נפרדת ולא מחולקים בין החטיבות (היעד עדיין מוזן לפי חטיבה ומסוכם כאן).{" "}
-        <strong style={{ color: "var(--ink)" }}>מוצרים</strong> הן מכירות מוצרים כלליות שלא משויכות לחטיבה ספציפית —
-        עדיין אין להן יעד מוגדר במערכת.
+        <strong style={{ color: "var(--ink)" }}>מוצרים</strong> הן מכירות מוצרים כלליות שלא משויכות לחטיבה ספציפית, עם
+        יעד כלל-חברתי משלהן (מוזן ב&quot;הזנת יעדים&quot;).
       </p>
     </div>
   );

@@ -41,6 +41,7 @@ export type DashboardData = {
   targets: Record<Division, Record<string, number>>;
   rapidActuals: Record<Division, Record<string, number>>;
   rapidCategories: RapidCategory[];
+  companyTargets: Record<string, number>;
   daysElapsed: number;
   daysInMonth: number;
   workDaysElapsed: number;
@@ -67,14 +68,21 @@ export async function getDashboardData(): Promise<DashboardData> {
   const now = new Date();
   const monthStart = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}-01`;
 
-  const [{ data: metricRows }, { data: reasonRows }, { data: targetRows }, { data: rapidRows }, { data: categoryRows }] =
-    await Promise.all([
-      supabase.from("zoho_metrics").select("division, metric, value, as_of").eq("month", monthStart),
-      supabase.from("zoho_invalid_lead_reasons").select("division, reason, count").eq("month", monthStart),
-      supabase.from("manual_entries").select("division, metric, value").eq("kind", "target").eq("month", monthStart),
-      supabase.from("manual_entries").select("division, metric, value").eq("kind", "rapid_actual").eq("month", monthStart),
-      supabase.from("rapid_sales_categories").select("category, division, amount").eq("month", monthStart),
-    ]);
+  const [
+    { data: metricRows },
+    { data: reasonRows },
+    { data: targetRows },
+    { data: rapidRows },
+    { data: categoryRows },
+    { data: companyTargetRows },
+  ] = await Promise.all([
+    supabase.from("zoho_metrics").select("division, metric, value, as_of").eq("month", monthStart),
+    supabase.from("zoho_invalid_lead_reasons").select("division, reason, count").eq("month", monthStart),
+    supabase.from("manual_entries").select("division, metric, value").eq("kind", "target").eq("month", monthStart),
+    supabase.from("manual_entries").select("division, metric, value").eq("kind", "rapid_actual").eq("month", monthStart),
+    supabase.from("rapid_sales_categories").select("category, division, amount").eq("month", monthStart),
+    supabase.from("company_targets").select("metric, value").eq("month", monthStart),
+  ]);
 
   const divisions = Object.fromEntries(
     DIVISIONS.map((d) => [d, { ...EMPTY_METRICS }])
@@ -130,6 +138,8 @@ export async function getDashboardData(): Promise<DashboardData> {
   const workDaysInMonth = workDaysBetween(monthDateObj, monthEndObj);
   const workDaysElapsed = workDaysBetween(monthDateObj, elapsedEndObj);
 
+  const companyTargets = Object.fromEntries((companyTargetRows ?? []).map((row) => [row.metric, row.value]));
+
   const rapidCategories = (categoryRows ?? [])
     .map((row) => ({
       category: row.category as string,
@@ -147,6 +157,7 @@ export async function getDashboardData(): Promise<DashboardData> {
     targets,
     rapidActuals,
     rapidCategories,
+    companyTargets,
     daysElapsed,
     daysInMonth,
     workDaysElapsed,

@@ -1,7 +1,9 @@
 import { ManualEntryScreen } from "@/components/forms/ManualEntryScreen";
+import { CompanyTargetForm } from "@/components/forms/CompanyTargetForm";
 import { getManualEntries } from "@/lib/dashboard/manualEntries";
-import { metricsForKind, groupsForKind } from "@/lib/metrics/catalog";
-import { saveTargets } from "./actions";
+import { getCompanyTargets } from "@/lib/dashboard/companyTargets";
+import { metricsForKind, groupsForKind, COMPANY_TARGET_METRICS } from "@/lib/metrics/catalog";
+import { saveTargets, saveCompanyTargets } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -20,10 +22,16 @@ export default async function TargetsPage({
   const monthDate = `${month}-01`;
 
   const data = await getManualEntries("target", monthDate);
+  const companyData = await getCompanyTargets(monthDate);
 
   async function save(division: Parameters<typeof saveTargets>[1], values: Record<string, number>) {
     "use server";
     await saveTargets(monthDate, division, values);
+  }
+
+  async function saveCompany(values: Record<string, number>) {
+    "use server";
+    await saveCompanyTargets(monthDate, values);
   }
 
   return (
@@ -35,6 +43,7 @@ export default async function TargetsPage({
       groups={groupsForKind("target")}
       data={data}
       onSave={save}
+      extra={<CompanyTargetForm metrics={COMPANY_TARGET_METRICS} initialValues={companyData} onSave={saveCompany} />}
     />
   );
 }

@@ -134,6 +134,16 @@ export const TARGET_METRICS: MetricDef[] = [
   },
 ];
 
+// Company-wide-only targets -- metrics with no single owning division (e.g.
+// general product sales). Stored in the separate `company_targets` table
+// (manual_entries requires a real division per row), so they're kept out of
+// TARGET_METRICS/metricsForKind entirely rather than forced into that shape.
+export type CompanyMetricDef = { key: string; label: string; valueType: MetricValueType };
+
+export const COMPANY_TARGET_METRICS: CompanyMetricDef[] = [
+  { key: "revenue_products", label: "יעד מוצרים (כלל חברה)", valueType: "currency" },
+];
+
 export function metricsForKind(kind: MetricKind): MetricDef[] {
   return TARGET_METRICS.filter((m) => m.kinds.includes(kind));
 }

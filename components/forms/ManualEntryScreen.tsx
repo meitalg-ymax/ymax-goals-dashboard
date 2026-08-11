@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { Tabbar, type TabDef } from "@/components/tabs/Tabbar";
 import { MonthPicker } from "@/components/forms/MonthPicker";
@@ -26,6 +26,7 @@ export function ManualEntryScreen({
   groups,
   data,
   onSave,
+  extra,
 }: {
   title: string;
   basePath: string;
@@ -35,6 +36,7 @@ export function ManualEntryScreen({
   groups: string[];
   data: ManualEntriesByDivision;
   onSave: (division: Division, values: Record<string, number>) => Promise<void>;
+  extra?: ReactNode;
 }) {
   const [activeDivision, setActiveDivision] = useState<Division>(initialDivision ?? "ymax");
 
@@ -67,6 +69,8 @@ export function ManualEntryScreen({
         initialValues={data[activeDivision] ?? {}}
         onSave={onSave}
       />
+
+      {extra}
 
       <footer>YAFA MAXIMOV — מעקב יעדים</footer>
     </div>
