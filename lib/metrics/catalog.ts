@@ -121,11 +121,16 @@ export const TARGET_METRICS: MetricDef[] = [
     kinds: ["target", "rapid_actual"],
   },
   {
+    // Actual referral revenue is sourced automatically company-wide from the
+    // Rapid "Treatment Plans Report" (scripts/import-referrals.mjs) -- the
+    // report has no division column, and Meital confirmed (2026-08-11) to
+    // sum it as one total rather than guess a per-division split. Only the
+    // target stays a per-division manual input; there's no rapid_actual kind.
     key: "revenue_referrals",
     label: "הכנסות - ירוקים (הפניות)",
     group: "הכנסות נוספות (ראפיד)",
     valueType: "currency",
-    kinds: ["target", "rapid_actual"],
+    kinds: ["target"],
   },
 ];
 

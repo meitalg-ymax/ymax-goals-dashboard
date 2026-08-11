@@ -59,8 +59,20 @@ export function OverviewKadavTable({
   workDaysElapsed: number;
   workDaysInMonth: number;
 }) {
-  const rapidByDivision = (d: Division | null) =>
+  const REFERRALS_CATEGORY = "ירוקים (הפניות)";
+
+  const rapidByDivision = (d: Division) =>
     rapidCategories.filter((c) => c.division === d).reduce((sum, c) => sum + c.amount, 0);
+
+  // Unassigned (division=null) rapid categories cover two distinct
+  // company-wide streams -- general product sales and referrals -- kept
+  // separate rather than lumped into one "products" total.
+  const productsActual = rapidCategories
+    .filter((c) => c.division === null && c.category !== REFERRALS_CATEGORY)
+    .reduce((sum, c) => sum + c.amount, 0);
+  const referralsActualTotal = rapidCategories
+    .filter((c) => c.division === null && c.category === REFERRALS_CATEGORY)
+    .reduce((sum, c) => sum + c.amount, 0);
 
   let grandLeadsActual = 0,
     grandLeadsTarget = 0,
@@ -69,7 +81,8 @@ export function OverviewKadavTable({
     grandClosingsActual = 0,
     grandClosingsTarget = 0,
     grandMoneyActual = 0,
-    grandMoneyTarget = 0;
+    grandMoneyTarget = 0,
+    referralsTargetTotal = 0;
 
   const rows = DIVISIONS.map((d) => {
     const m = divisions[d];
@@ -89,9 +102,11 @@ export function OverviewKadavTable({
 
     // "סה"כ כסף" -- the real reconciliation total, from Rapid (all money that
     // actually landed, CRM-tracked or not), not just Zoho CRM revenue.
+    // Referrals are excluded here -- the source report has no division
+    // column, so actual referral revenue can't be attributed to any one
+    // division (see the dedicated "ירוקים" line below instead).
     const moneyActual = m.revenue_funded_organic + m.revenue_mailing + rapidByDivision(d);
-    const moneyTarget =
-      (t.revenue_funded_organic ?? 0) + (t.revenue_mailing ?? 0) + (t.revenue_spa_upgrades ?? 0) + (t.revenue_referrals ?? 0);
+    const moneyTarget = (t.revenue_funded_organic ?? 0) + (t.revenue_mailing ?? 0) + (t.revenue_spa_upgrades ?? 0);
     const moneyKadav = calcWorkdayKadav(moneyActual, moneyTarget || undefined, workDaysElapsed, workDaysInMonth);
 
     grandLeadsActual += leadsActual;
@@ -102,12 +117,20 @@ export function OverviewKadavTable({
     grandClosingsTarget += closingsTarget;
     grandMoneyActual += moneyActual;
     grandMoneyTarget += moneyTarget;
+    referralsTargetTotal += t.revenue_referrals ?? 0;
 
     return { division: d, leadsKadav, arrivalsKadav, closingsKadav, moneyKadav };
   });
 
-  const productsActual = rapidByDivision(null);
-  grandMoneyActual += productsActual;
+  grandMoneyActual += productsActual + referralsActualTotal;
+  grandMoneyTarget += referralsTargetTotal;
+
+  const referralsKadav = calcWorkdayKadav(
+    referralsActualTotal,
+    referralsTargetTotal || undefined,
+    workDaysElapsed,
+    workDaysInMonth
+  );
 
   const grandLeadsKadav = calcLeadsKadav(grandLeadsActual, grandLeadsTarget || undefined, daysElapsed, daysInMonth);
   const grandArrivalsKadav = calcWorkdayKadav(grandArrivalsActual, grandArrivalsTarget || undefined, workDaysElapsed, workDaysInMonth);
@@ -146,7 +169,7 @@ export function OverviewKadavTable({
 
         <div style={{ marginTop: 6 }}>
           <p className="section-label" style={{ margin: "0 0 6px" }}>
-            מוצרים
+            מוצרים וירוקים — כלל החברה
           </p>
           <div className="real-row" style={{ gridTemplateColumns: COLS }}>
             <span className="rname">מכירת מוצרים (כללי)</span>
@@ -155,6 +178,7 @@ export function OverviewKadavTable({
             <span>—</span>
             <span>—</span>
           </div>
+          <Row label="ירוקים (הפניות)" result={referralsKadav} isCurrency />
         </div>
 
         <div style={{ marginTop: 10, borderTop: "2px solid var(--border)", paddingTop: 10 }}>
@@ -164,16 +188,16 @@ export function OverviewKadavTable({
           <Row label="סה״כ לידים" result={grandLeadsKadav} bold />
           <Row label="סה״כ הגעות" result={grandArrivalsKadav} bold />
           <Row label="סה״כ סגירות" result={grandClosingsKadav} bold />
-          <Row label="סה״כ כסף (כולל מוצרים)" result={grandMoneyKadav} isCurrency bold />
+          <Row label="סה״כ כסף (כולל מוצרים וירוקים)" result={grandMoneyKadav} isCurrency bold />
         </div>
       </div>
 
       <p className="real-note">
-        <strong style={{ color: "var(--ink)" }}>סה״כ כסף</strong> = הכנסות CRM (ממומן+אורגני+דיוור) + כל מה שדווח
-        בראפיד עבור החטיבה הזו (ספה/שדרוגים/ירוקים/מוצרים ששויכו לחטיבה). <strong style={{ color: "var(--ink)" }}>
-          מוצרים
-        </strong>{" "}
-        הן מכירות מוצרים כלליות שלא משויכות לחטיבה ספציפית — עדיין אין להן יעד מוגדר במערכת.
+        <strong style={{ color: "var(--ink)" }}>סה״כ כסף</strong> (לפי חטיבה) = הכנסות CRM (ממומן+אורגני+דיוור) + ספה
+        ושדרוגים ששויכו לחטיבה. <strong style={{ color: "var(--ink)" }}>ירוקים (הפניות)</strong> מדווחים בדוח כלל-חברתי
+        ללא פירוט לחטיבה, ולכן מוצגים כשורה נפרדת ולא מחולקים בין החטיבות (היעד עדיין מוזן לפי חטיבה ומסוכם כאן).{" "}
+        <strong style={{ color: "var(--ink)" }}>מוצרים</strong> הן מכירות מוצרים כלליות שלא משויכות לחטיבה ספציפית —
+        עדיין אין להן יעד מוגדר במערכת.
       </p>
     </div>
   );

@@ -232,8 +232,8 @@ export function DivisionRealCard({
         חוץ מ-&quot;ig_linktree&quot; שנחשב אורגני). <strong style={{ color: "var(--ink)" }}>לא תקינים:</strong> שדה
         &quot;מעקב פניה&quot;, ממומן בלבד. <strong style={{ color: "var(--ink)" }}>הגעות:</strong> שדה &quot;זמן
         פגישת ייעוץ&quot;. <strong style={{ color: "var(--ink)" }}>סגירות והכנסות:</strong> שדה &quot;תאריך
-        יעוץ/עסקה&quot;, סטטוס ליד = נסגרה עסקה. <strong style={{ color: "var(--ink)" }}>לא כלול:</strong> ספה,
-        שדרוגים וירוקים — יתווסף בנפרד בהמשך. מתעדכן אוטומטית כל יום.
+        יעוץ/עסקה&quot;, סטטוס ליד = נסגרה עסקה. <strong style={{ color: "var(--ink)" }}>לא כלול כאן:</strong> ספה,
+        שדרוגים וירוקים — ר&apos; הטבלה המפורטת למטה. מתעדכן אוטומטית כל יום.
       </p>
     </div>
   );

@@ -131,9 +131,9 @@ export function DashboardShell({ data }: { data: DashboardData }) {
                   workDaysInMonth={data.workDaysInMonth}
                 />
                 <p className="real-note">
-                  מתחשב הכל אוטומטית מ-Zoho וראפיד, חוץ מ<strong style={{ color: "var(--ink)" }}>תקציב ממומן בפועל</strong> ו
-                  <strong style={{ color: "var(--ink)" }}>ירוקים (הפניות)</strong> — אלה מוזנים ידנית ב&quot;הזנת נתונים
-                  ידניים&quot;.
+                  מתחשב הכל אוטומטית מ-Zoho וראפיד, חוץ מ<strong style={{ color: "var(--ink)" }}>תקציב ממומן בפועל</strong>{" "}
+                  שמוזן ידנית ב&quot;הזנת נתונים ידניים&quot;. <strong style={{ color: "var(--ink)" }}>ירוקים (הפניות)</strong>{" "}
+                  מיובאים אוטומטית מדוח ראפיד, אך כלל-חברתי בלבד (לא מחולק לפי חטיבה) — ר&apos; מבט כללי.
                 </p>
               </div>
             </div>

@@ -50,6 +50,22 @@ function PlainRow({ label, value }: { label: string; value: number }) {
   );
 }
 
+// ירוקים (referrals) actual comes from a company-wide report with no
+// division column -- can't be attributed to this division, so show the
+// target only and point to the overview for the real number.
+function UnsplitRow({ label, target, isCurrency }: { label: string; target: number; isCurrency?: boolean }) {
+  const fmt = isCurrency ? formatCurrency : formatNumber;
+  return (
+    <div className="real-row" style={{ gridTemplateColumns: COLS }}>
+      <span className="rname">{label}</span>
+      <span>{target ? fmt(target) : "—"}</span>
+      <span style={{ gridColumn: "span 3", color: "var(--muted)", fontSize: 12.5 }}>
+        לא מחולק לפי חטיבה — ר&apos; מבט כללי
+      </span>
+    </div>
+  );
+}
+
 export function DivisionDetailTable({
   division,
   metrics,
@@ -96,12 +112,10 @@ export function DivisionDetailTable({
   // before the real report is imported -- summed so nothing is silently lost).
   const spaFromCategories = rapidCategories.filter((c) => c.division === division).reduce((s, c) => s + c.amount, 0);
   const spaActual = (rapidActuals.revenue_spa_upgrades ?? 0) + spaFromCategories;
-  const referralsActual = rapidActuals.revenue_referrals ?? 0;
 
-  const totalMoneyActual =
-    metrics.revenue_funded_organic + metrics.revenue_mailing + spaActual + referralsActual;
-  const totalMoneyTarget =
-    t("revenue_funded_organic") + t("revenue_mailing") + t("revenue_spa_upgrades") + t("revenue_referrals");
+  // Referrals excluded from this division's total -- see UnsplitRow below.
+  const totalMoneyActual = metrics.revenue_funded_organic + metrics.revenue_mailing + spaActual;
+  const totalMoneyTarget = t("revenue_funded_organic") + t("revenue_mailing") + t("revenue_spa_upgrades");
 
   return (
     <div className="real-table">
@@ -158,7 +172,7 @@ export function DivisionDetailTable({
       <RatioRow label="שווי עסקה ממוצע (דיוור)" target={t("avg_deal_value_mailing")} actual={avgDealMail} isCurrency />
 
       <PacedRow label="ספה ושדרוגים" result={workday(spaActual, t("revenue_spa_upgrades"))} isCurrency />
-      <PacedRow label="ירוקים (הפניות)" result={workday(referralsActual, t("revenue_referrals"))} isCurrency />
+      <UnsplitRow label="ירוקים (הפניות)" target={t("revenue_referrals")} isCurrency />
 
       <div style={{ borderTop: "2px solid var(--border)", marginTop: 4, paddingTop: 4 }}>
         <PacedRow label="סה״כ כסף ראפיד" result={workday(totalMoneyActual, totalMoneyTarget)} isCurrency bold />
