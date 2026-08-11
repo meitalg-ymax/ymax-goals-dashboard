@@ -43,3 +43,6 @@ next-env.d.ts
 # reference files kept locally only -- not app source, not for git history
 *.xlsx
 .superpowers/
+
+.vercel
+.env*
