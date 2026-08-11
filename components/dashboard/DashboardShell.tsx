@@ -4,6 +4,10 @@ import { useState } from "react";
 import Link from "next/link";
 import { Tabbar, type TabDef } from "@/components/tabs/Tabbar";
 import { SignOutButton } from "@/components/SignOutButton";
+import { DivisionRealCard } from "@/components/dashboard/DivisionRealCard";
+import { OverviewRealCard } from "@/components/dashboard/OverviewRealCard";
+import type { DashboardData } from "@/lib/dashboard/getDashboardData";
+import type { Division } from "@/lib/zoho/transform";
 
 const TABS: TabDef[] = [
   { id: "overview", label: "כללי" },
@@ -13,14 +17,16 @@ const TABS: TabDef[] = [
   { id: "doctor", label: "doctor" },
 ];
 
-const DIVISION_SEGMENT: Record<string, string> = {
+const DIVISION_SEGMENT: Record<Division, string> = {
   ymax: "הסרת שיער פנים",
   body: "הסרת שיער בגוף",
   tech: "אנטי אייג׳ינג, מירה דריי, פיגמנטציה ועוד",
   doctor: "הזרקות",
 };
 
-export function DashboardShell() {
+const DIVISIONS: Division[] = ["ymax", "body", "tech", "doctor"];
+
+export function DashboardShell({ data }: { data: DashboardData }) {
   const [activeTab, setActiveTab] = useState("overview");
 
   return (
@@ -46,21 +52,25 @@ export function DashboardShell() {
 
       <Tabbar tabs={TABS} activeId={activeTab} onChange={setActiveTab} />
 
-      {activeTab === "overview" && (
-        <div className="tabpanel">
-          <div className="missing-card">
-            <div className="mc-text">
-              <span className="mc-title">הדשבורד החי בהקמה</span>
-              <span className="mc-sub">
-                השלד באוויר. חיבור ה-Zoho החי, מסך היעדים ומסך הראפיד מתווספים בשלבים הבאים.
-              </span>
-            </div>
-            <span className="missing-badge">⏳ בבנייה</span>
+      {!data.hasSyncedData && (
+        <div className="missing-card">
+          <div className="mc-text">
+            <span className="mc-title">חסר נתון — הסנכרון הראשון עוד לא רץ</span>
+            <span className="mc-sub">
+              הסנכרון מ-Zoho רץ פעם ביום אוטומטית. אם זה חדש, תני לו רגע ורעננו את הדף.
+            </span>
           </div>
+          <span className="missing-badge">⏳ ממתין לסנכרון</span>
         </div>
       )}
 
-      {Object.keys(DIVISION_SEGMENT).map(
+      {activeTab === "overview" && (
+        <div className="tabpanel">
+          <OverviewRealCard divisions={data.divisions} asOf={data.asOf} monthLabel={data.monthLabel} />
+        </div>
+      )}
+
+      {DIVISIONS.map(
         (division) =>
           activeTab === division && (
             <div className="tabpanel" key={division}>
@@ -70,15 +80,12 @@ export function DashboardShell() {
                 </div>
                 <span className="segment">{DIVISION_SEGMENT[division]} — כל המקורות יחד</span>
               </div>
-              <div className="missing-card">
-                <div className="mc-text">
-                  <span className="mc-title">חסר נתון — טרם חובר לדשבורד החי</span>
-                  <span className="mc-sub">
-                    נתוני Zoho, יעדים וקד&quot;ב לחטיבה זו יתווספו בשלבים הבאים של הבנייה.
-                  </span>
-                </div>
-                <span className="missing-badge">⏳ בבנייה</span>
-              </div>
+              <DivisionRealCard
+                division={division}
+                metrics={data.divisions[division]}
+                reasons={data.invalidReasons[division]}
+                asOf={data.asOf}
+              />
             </div>
           )
       )}
