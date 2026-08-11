@@ -21,11 +21,17 @@ export type MetricDef = {
 };
 
 export const TARGET_METRICS: MetricDef[] = [
-  { key: "budget_funded", label: "תקציב ממומן", group: "לידים", valueType: "currency", kinds: ["target"] },
+  {
+    key: "budget_funded",
+    label: "תקציב ממומן",
+    group: "תקציב",
+    valueType: "currency",
+    kinds: ["target", "rapid_actual"],
+  },
   {
     key: "cost_per_lead_funded",
     label: "עלות ליד ממומן",
-    group: "לידים",
+    group: "תקציב",
     valueType: "currency",
     kinds: ["target"],
   },

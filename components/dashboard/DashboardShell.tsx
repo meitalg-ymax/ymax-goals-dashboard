@@ -52,7 +52,7 @@ export function DashboardShell({ data }: { data: DashboardData }) {
             הזנת יעדים
           </Link>
           <Link className="source-chip" href="/rapid">
-            הזנת ראפיד
+            הזנת נתונים ידניים
           </Link>
           <SignOutButton />
         </div>
@@ -103,6 +103,7 @@ export function DashboardShell({ data }: { data: DashboardData }) {
                 reasons={data.invalidReasons[division]}
                 asOf={data.asOf}
                 targets={data.targets[division]}
+                rapidActuals={data.rapidActuals[division]}
                 daysElapsed={data.daysElapsed}
                 daysInMonth={data.daysInMonth}
                 workDaysElapsed={data.workDaysElapsed}

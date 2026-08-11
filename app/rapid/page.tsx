@@ -28,7 +28,7 @@ export default async function RapidPage({
 
   return (
     <ManualEntryScreen
-      title="הזנת נתוני ראפיד (ספה / שדרוגים / ירוקים)"
+      title="הזנת נתונים ידניים (תקציב בפועל, ספה, שדרוגים, ירוקים)"
       basePath="/rapid"
       month={month}
       metrics={metricsForKind("rapid_actual")}

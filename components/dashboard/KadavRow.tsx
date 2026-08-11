@@ -1,6 +1,30 @@
 import type { KadavResult } from "@/lib/metrics/pacing";
 import { formatCurrency, formatNumber } from "@/lib/metrics/format";
 
+export function StageBlock({
+  title,
+  note,
+  result,
+  isCurrency,
+}: {
+  title: string;
+  note?: string;
+  result: KadavResult;
+  isCurrency?: boolean;
+}) {
+  return (
+    <div className="stage-block">
+      <p className="stage-title">
+        {title}
+        {note && (
+          <span style={{ fontWeight: 400, color: "var(--muted)", fontSize: 11.5 }}> {note}</span>
+        )}
+      </p>
+      <KadavRow result={result} isCurrency={isCurrency} />
+    </div>
+  );
+}
+
 export function KadavRow({ result, isCurrency }: { result: KadavResult; isCurrency?: boolean }) {
   const fmt = isCurrency ? formatCurrency : formatNumber;
 

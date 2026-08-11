@@ -1,8 +1,9 @@
 import { DIVISIONS, type Division } from "@/lib/zoho/transform";
 import type { DivisionMetrics } from "@/lib/dashboard/getDashboardData";
-import { formatCurrency, formatNumber } from "@/lib/metrics/format";
+import { formatNumber } from "@/lib/metrics/format";
 import { calcLeadsKadav, calcWorkdayKadav } from "@/lib/metrics/pacing";
-import { KadavRow } from "@/components/dashboard/KadavRow";
+import { StageBlock } from "@/components/dashboard/KadavRow";
+import { FunnelShape } from "@/components/dashboard/FunnelShape";
 
 const DIVISION_LABELS: Record<Division, string> = {
   ymax: "ymax",
@@ -11,6 +12,11 @@ const DIVISION_LABELS: Record<Division, string> = {
   mira_dry: "mira dry",
   doctor: "doctor",
 };
+
+function pct(numerator: number, denominator: number): string {
+  if (denominator <= 0) return "—";
+  return `${((numerator / denominator) * 100).toFixed(1)}%`;
+}
 
 export function OverviewRealCard({
   divisions,
@@ -96,93 +102,53 @@ export function OverviewRealCard({
         </span>
       </div>
 
-      <div className="real-summary">
-        <div className="real-tile">
-          <div className="n">{formatNumber(totals.leads)}</div>
-          <div className="l">סה״כ לידים</div>
-        </div>
-        <div className="real-tile">
-          <div className="n">{formatNumber(totals.funded)}</div>
-          <div className="l">ממומן</div>
-        </div>
-        <div className="real-tile">
-          <div className="n">{formatNumber(totals.organic)}</div>
-          <div className="l">אורגני</div>
-        </div>
-      </div>
-      <KadavRow result={leadsKadav} />
+      <FunnelShape leads={totals.leads} arrivals={totals.arrivals} closings={totals.closings} />
 
-      <div className="real-table">
-        <div className="real-row head">
-          <span>חטיבה</span>
-          <span>יחס ממומן / אורגני</span>
-          <span>ממומן</span>
-          <span>אורגני</span>
-          <span>סהכ</span>
-        </div>
-        {DIVISIONS.map((d) => {
-          const m = divisions[d];
-          const total = m.leads_funded + m.leads_organic;
-          const paidPct = total > 0 ? (m.leads_funded / total) * 100 : 0;
-          const orgPct = total > 0 ? 100 - paidPct : 0;
-          return (
-            <div className="real-row" key={d}>
-              <span className="rname">{DIVISION_LABELS[d]}</span>
-              <span className="rbar-wrap">
-                <span className="rbar-paid" style={{ width: `${paidPct}%` }} />
-                <span className="rbar-org" style={{ width: `${orgPct}%` }} />
-              </span>
-              <span>{formatNumber(m.leads_funded)}</span>
-              <span>{formatNumber(m.leads_organic)}</span>
-              <span>{formatNumber(total)}</span>
-            </div>
-          );
-        })}
-      </div>
-
-      <div className="summary">
-        <div className="tile">
-          <span className="label">סה״כ הגעות</span>
-          <div className="value-row">
-            <span className="value">{formatNumber(totals.arrivals)}</span>
-          </div>
-        </div>
-        <div className="tile">
-          <span className="label">סה״כ סגירות</span>
-          <div className="value-row">
-            <span className="value">{formatNumber(totals.closings)}</span>
-          </div>
-        </div>
-        <div className="tile">
-          <span className="label">סה״כ הכנסות (CRM בלבד)</span>
-          <div className="value-row">
-            <span className="value">{formatCurrency(totals.revenue)}</span>
-          </div>
-        </div>
-      </div>
+      <StageBlock title="לידים" result={leadsKadav} />
+      <StageBlock title="הגעות" note={`(${pct(totals.arrivals, totals.leads)} מהלידים)`} result={arrivalsKadav} />
+      <StageBlock
+        title="סגירות"
+        note={`(${pct(totals.closings, totals.arrivals)} מהמגיעות)`}
+        result={closingsKadav}
+      />
+      <StageBlock title="הכנסות (CRM בלבד)" result={revenueKadav} isCurrency />
 
       <div>
         <p className="section-label" style={{ marginBottom: 8 }}>
-          הגעות — קד&quot;ב מול יעד
+          לידים ממומן/אורגני לפי חטיבה
         </p>
-        <KadavRow result={arrivalsKadav} />
-      </div>
-      <div>
-        <p className="section-label" style={{ marginBottom: 8 }}>
-          סגירות — קד&quot;ב מול יעד
-        </p>
-        <KadavRow result={closingsKadav} />
-      </div>
-      <div>
-        <p className="section-label" style={{ marginBottom: 8 }}>
-          הכנסות — קד&quot;ב מול יעד
-        </p>
-        <KadavRow result={revenueKadav} isCurrency />
+        <div className="real-table">
+          <div className="real-row head">
+            <span>חטיבה</span>
+            <span>יחס ממומן / אורגני</span>
+            <span>ממומן</span>
+            <span>אורגני</span>
+            <span>סהכ</span>
+          </div>
+          {DIVISIONS.map((d) => {
+            const m = divisions[d];
+            const total = m.leads_funded + m.leads_organic;
+            const paidPct = total > 0 ? (m.leads_funded / total) * 100 : 0;
+            const orgPct = total > 0 ? 100 - paidPct : 0;
+            return (
+              <div className="real-row" key={d}>
+                <span className="rname">{DIVISION_LABELS[d]}</span>
+                <span className="rbar-wrap">
+                  <span className="rbar-paid" style={{ width: `${paidPct}%` }} />
+                  <span className="rbar-org" style={{ width: `${orgPct}%` }} />
+                </span>
+                <span>{formatNumber(m.leads_funded)}</span>
+                <span>{formatNumber(m.leads_organic)}</span>
+                <span>{formatNumber(total)}</span>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       <p className="real-note">
-        <strong style={{ color: "var(--ink)" }}>פירוט מלא</strong> — כולל לידים לא תקינים, הגעות, סגירות והכנסות
-        בפילוח ממומן/אורגני/דיוור — נמצא בטאב של כל חטיבה בנפרד. הכנסות כאן הן מ-CRM בלבד, לא כוללות ספה/שדרוגים/ירוקים.
+        <strong style={{ color: "var(--ink)" }}>פירוט מלא</strong> — כולל לידים לא תקינים, תקציב וניצול, ומחיר לליד
+        בפועל מול יעד — נמצא בטאב של כל חטיבה בנפרד. הכנסות כאן הן מ-CRM בלבד, לא כוללות ספה/שדרוגים/ירוקים.
       </p>
     </div>
   );
