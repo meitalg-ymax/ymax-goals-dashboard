@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Tabbar, type TabDef } from "@/components/tabs/Tabbar";
 import { SignOutButton } from "@/components/SignOutButton";
 import { DivisionRealCard } from "@/components/dashboard/DivisionRealCard";
+import { DivisionDetailTable } from "@/components/dashboard/DivisionDetailTable";
 import { OverviewKadavTable } from "@/components/dashboard/OverviewKadavTable";
 import { RapidCategoryBreakdown } from "@/components/dashboard/RapidCategoryBreakdown";
 import type { DashboardData } from "@/lib/dashboard/getDashboardData";
@@ -110,6 +111,31 @@ export function DashboardShell({ data }: { data: DashboardData }) {
                 workDaysElapsed={data.workDaysElapsed}
                 workDaysInMonth={data.workDaysInMonth}
               />
+
+              <div className="real-card">
+                <div className="real-head">
+                  <div className="real-title">
+                    <h2>טבלה מפורטת — כמו באקסל</h2>
+                    <span className="real-badge">✓ נתון חי</span>
+                  </div>
+                </div>
+                <DivisionDetailTable
+                  division={division}
+                  metrics={data.divisions[division]}
+                  targets={data.targets[division]}
+                  rapidActuals={data.rapidActuals[division]}
+                  rapidCategories={data.rapidCategories}
+                  daysElapsed={data.daysElapsed}
+                  daysInMonth={data.daysInMonth}
+                  workDaysElapsed={data.workDaysElapsed}
+                  workDaysInMonth={data.workDaysInMonth}
+                />
+                <p className="real-note">
+                  מתחשב הכל אוטומטית מ-Zoho וראפיד, חוץ מ<strong style={{ color: "var(--ink)" }}>תקציב ממומן בפועל</strong> ו
+                  <strong style={{ color: "var(--ink)" }}>ירוקים (הפניות)</strong> — אלה מוזנים ידנית ב&quot;הזנת נתונים
+                  ידניים&quot;.
+                </p>
+              </div>
             </div>
           )
       )}
