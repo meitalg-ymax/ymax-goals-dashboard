@@ -2,8 +2,10 @@ import { runCoqlAll } from "./coql";
 import { andAll } from "./coqlHelpers";
 import type { MonthRange } from "./dateRanges";
 
-// tech is a rollup of these `type` values (confirmed methodology).
-export const TECH_TYPE_VALUES = ["anti aging", "acne", "pigmentation", "post acne", "mira dry"];
+// tech is a rollup of these `type` values (confirmed methodology). mira dry
+// used to roll up into tech too, but is now its own division (2026-08-11) --
+// handled separately in transform.ts, not part of this list.
+export const TECH_TYPE_VALUES = ["anti aging", "acne", "pigmentation", "post acne"];
 
 const HEBREW_MONTHS = [
   "ינואר",

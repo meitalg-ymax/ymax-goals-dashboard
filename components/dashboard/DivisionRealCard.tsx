@@ -1,11 +1,14 @@
 import type { Division } from "@/lib/zoho/transform";
 import type { DivisionMetrics, InvalidReason } from "@/lib/dashboard/getDashboardData";
 import { formatCurrency, formatNumber } from "@/lib/metrics/format";
+import { calcLeadsKadav, calcWorkdayKadav } from "@/lib/metrics/pacing";
+import { KadavRow } from "@/components/dashboard/KadavRow";
 
 const DIVISION_LABELS: Record<Division, string> = {
   ymax: "ymax",
   body: "body",
   tech: "tech",
+  mira_dry: "mira dry",
   doctor: "doctor",
 };
 
@@ -14,16 +17,57 @@ export function DivisionRealCard({
   metrics,
   reasons,
   asOf,
+  targets,
+  daysElapsed,
+  daysInMonth,
+  workDaysElapsed,
+  workDaysInMonth,
 }: {
   division: Division;
   metrics: DivisionMetrics;
   reasons: InvalidReason[];
   asOf: string | null;
+  targets: Record<string, number>;
+  daysElapsed: number;
+  daysInMonth: number;
+  workDaysElapsed: number;
+  workDaysInMonth: number;
 }) {
   const totalLeads = metrics.leads_funded + metrics.leads_organic;
   const totalArrivals = metrics.arrivals_funded_organic + metrics.arrivals_mailing;
   const totalClosings = metrics.closings_funded_organic + metrics.closings_mailing;
   const totalRevenue = metrics.revenue_funded_organic + metrics.revenue_mailing;
+
+  const targetLeads = targets.leads_funded + targets.leads_organic + targets.leads_mailing;
+  const hasLeadsTarget = targets.leads_funded || targets.leads_organic || targets.leads_mailing;
+  const leadsKadav = calcLeadsKadav(totalLeads, hasLeadsTarget ? targetLeads : undefined, daysElapsed, daysInMonth);
+
+  const targetArrivals = targets.arrivals_funded_organic + targets.arrivals_mailing;
+  const hasArrivalsTarget = targets.arrivals_funded_organic || targets.arrivals_mailing;
+  const arrivalsKadav = calcWorkdayKadav(
+    totalArrivals,
+    hasArrivalsTarget ? targetArrivals : undefined,
+    workDaysElapsed,
+    workDaysInMonth
+  );
+
+  const targetClosings = targets.closings_funded_organic + targets.closings_mailing;
+  const hasClosingsTarget = targets.closings_funded_organic || targets.closings_mailing;
+  const closingsKadav = calcWorkdayKadav(
+    totalClosings,
+    hasClosingsTarget ? targetClosings : undefined,
+    workDaysElapsed,
+    workDaysInMonth
+  );
+
+  const targetRevenue = targets.revenue_funded_organic + targets.revenue_mailing;
+  const hasRevenueTarget = targets.revenue_funded_organic || targets.revenue_mailing;
+  const revenueKadav = calcWorkdayKadav(
+    totalRevenue,
+    hasRevenueTarget ? targetRevenue : undefined,
+    workDaysElapsed,
+    workDaysInMonth
+  );
 
   return (
     <div className="real-card">
@@ -57,6 +101,7 @@ export function DivisionRealCard({
             <div className="l">מדיוור</div>
           </div>
         </div>
+        <KadavRow result={leadsKadav} />
       </div>
 
       <div>
@@ -112,6 +157,7 @@ export function DivisionRealCard({
             <div className="l">סה״כ הגעות</div>
           </div>
         </div>
+        <KadavRow result={arrivalsKadav} />
       </div>
 
       <div>

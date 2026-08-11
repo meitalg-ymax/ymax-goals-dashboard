@@ -7,24 +7,32 @@ import { SignOutButton } from "@/components/SignOutButton";
 import { DivisionRealCard } from "@/components/dashboard/DivisionRealCard";
 import { OverviewRealCard } from "@/components/dashboard/OverviewRealCard";
 import type { DashboardData } from "@/lib/dashboard/getDashboardData";
-import type { Division } from "@/lib/zoho/transform";
+import { DIVISIONS, type Division } from "@/lib/zoho/transform";
 
 const TABS: TabDef[] = [
   { id: "overview", label: "כללי" },
   { id: "ymax", label: "ymax" },
   { id: "body", label: "body" },
   { id: "tech", label: "tech" },
+  { id: "mira_dry", label: "mira dry" },
   { id: "doctor", label: "doctor" },
 ];
+
+const DIVISION_LABELS: Record<Division, string> = {
+  ymax: "ymax",
+  body: "body",
+  tech: "tech",
+  mira_dry: "mira dry",
+  doctor: "doctor",
+};
 
 const DIVISION_SEGMENT: Record<Division, string> = {
   ymax: "הסרת שיער פנים",
   body: "הסרת שיער בגוף",
-  tech: "אנטי אייג׳ינג, מירה דריי, פיגמנטציה ועוד",
+  tech: "אנטי אייג׳ינג, פיגמנטציה ועוד",
+  mira_dry: "מירה דריי",
   doctor: "הזרקות",
 };
-
-const DIVISIONS: Division[] = ["ymax", "body", "tech", "doctor"];
 
 export function DashboardShell({ data }: { data: DashboardData }) {
   const [activeTab, setActiveTab] = useState("overview");
@@ -66,7 +74,16 @@ export function DashboardShell({ data }: { data: DashboardData }) {
 
       {activeTab === "overview" && (
         <div className="tabpanel">
-          <OverviewRealCard divisions={data.divisions} asOf={data.asOf} monthLabel={data.monthLabel} />
+          <OverviewRealCard
+            divisions={data.divisions}
+            asOf={data.asOf}
+            monthLabel={data.monthLabel}
+            targets={data.targets}
+            daysElapsed={data.daysElapsed}
+            daysInMonth={data.daysInMonth}
+            workDaysElapsed={data.workDaysElapsed}
+            workDaysInMonth={data.workDaysInMonth}
+          />
         </div>
       )}
 
@@ -76,7 +93,7 @@ export function DashboardShell({ data }: { data: DashboardData }) {
             <div className="tabpanel" key={division}>
               <div className="div-head">
                 <div className="name-row">
-                  <h2>{division}</h2>
+                  <h2>{DIVISION_LABELS[division]}</h2>
                 </div>
                 <span className="segment">{DIVISION_SEGMENT[division]} — כל המקורות יחד</span>
               </div>
@@ -85,6 +102,11 @@ export function DashboardShell({ data }: { data: DashboardData }) {
                 metrics={data.divisions[division]}
                 reasons={data.invalidReasons[division]}
                 asOf={data.asOf}
+                targets={data.targets[division]}
+                daysElapsed={data.daysElapsed}
+                daysInMonth={data.daysInMonth}
+                workDaysElapsed={data.workDaysElapsed}
+                workDaysInMonth={data.workDaysInMonth}
               />
             </div>
           )

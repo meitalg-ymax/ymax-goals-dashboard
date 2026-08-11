@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { DIVISIONS, type Division } from "@/lib/zoho/transform";
+import { workDaysBetween } from "@/lib/zoho/dateRanges";
 
 export type DivisionMetrics = {
   leads_funded: number;
@@ -35,6 +36,12 @@ export type DashboardData = {
   monthLabel: string;
   divisions: Record<Division, DivisionMetrics>;
   invalidReasons: Record<Division, InvalidReason[]>;
+  targets: Record<Division, Record<string, number>>;
+  rapidActuals: Record<Division, Record<string, number>>;
+  daysElapsed: number;
+  daysInMonth: number;
+  workDaysElapsed: number;
+  workDaysInMonth: number;
 };
 
 const MONTH_NAMES_HE = [
@@ -57,9 +64,11 @@ export async function getDashboardData(): Promise<DashboardData> {
   const now = new Date();
   const monthStart = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}-01`;
 
-  const [{ data: metricRows }, { data: reasonRows }] = await Promise.all([
+  const [{ data: metricRows }, { data: reasonRows }, { data: targetRows }, { data: rapidRows }] = await Promise.all([
     supabase.from("zoho_metrics").select("division, metric, value, as_of").eq("month", monthStart),
     supabase.from("zoho_invalid_lead_reasons").select("division, reason, count").eq("month", monthStart),
+    supabase.from("manual_entries").select("division, metric, value").eq("kind", "target").eq("month", monthStart),
+    supabase.from("manual_entries").select("division, metric, value").eq("kind", "rapid_actual").eq("month", monthStart),
   ]);
 
   const divisions = Object.fromEntries(
@@ -86,11 +95,47 @@ export async function getDashboardData(): Promise<DashboardData> {
     invalidReasons[division].sort((a, b) => b.count - a.count);
   }
 
+  const targets = Object.fromEntries(
+    DIVISIONS.map((d) => [d, {} as Record<string, number>])
+  ) as Record<Division, Record<string, number>>;
+  for (const row of targetRows ?? []) {
+    const division = row.division as Division;
+    if (!targets[division]) continue;
+    targets[division][row.metric] = row.value;
+  }
+
+  const rapidActuals = Object.fromEntries(
+    DIVISIONS.map((d) => [d, {} as Record<string, number>])
+  ) as Record<Division, Record<string, number>>;
+  for (const row of rapidRows ?? []) {
+    const division = row.division as Division;
+    if (!rapidActuals[division]) continue;
+    rapidActuals[division][row.metric] = row.value;
+  }
+
+  const monthDateObj = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+  const daysInMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0)).getUTCDate();
+  const daysElapsed = asOf ? new Date(asOf).getUTCDate() : Math.max(0, now.getUTCDate() - 1);
+
+  const monthEndObj = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), daysInMonth));
+  const elapsedEndObj = asOf
+    ? new Date(asOf)
+    : new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), Math.max(1, now.getUTCDate() - 1)));
+
+  const workDaysInMonth = workDaysBetween(monthDateObj, monthEndObj);
+  const workDaysElapsed = workDaysBetween(monthDateObj, elapsedEndObj);
+
   return {
     hasSyncedData: (metricRows?.length ?? 0) > 0,
     asOf,
     monthLabel: `${MONTH_NAMES_HE[now.getUTCMonth()]} ${now.getUTCFullYear()}`,
     divisions,
     invalidReasons,
+    targets,
+    rapidActuals,
+    daysElapsed,
+    daysInMonth,
+    workDaysElapsed,
+    workDaysInMonth,
   };
 }

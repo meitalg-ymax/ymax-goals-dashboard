@@ -1,11 +1,14 @@
 import { DIVISIONS, type Division } from "@/lib/zoho/transform";
 import type { DivisionMetrics } from "@/lib/dashboard/getDashboardData";
 import { formatCurrency, formatNumber } from "@/lib/metrics/format";
+import { calcLeadsKadav, calcWorkdayKadav } from "@/lib/metrics/pacing";
+import { KadavRow } from "@/components/dashboard/KadavRow";
 
 const DIVISION_LABELS: Record<Division, string> = {
   ymax: "ymax",
   body: "body",
   tech: "tech",
+  mira_dry: "mira dry",
   doctor: "doctor",
 };
 
@@ -13,23 +16,71 @@ export function OverviewRealCard({
   divisions,
   asOf,
   monthLabel,
+  targets,
+  daysElapsed,
+  daysInMonth,
+  workDaysElapsed,
+  workDaysInMonth,
 }: {
   divisions: Record<Division, DivisionMetrics>;
   asOf: string | null;
   monthLabel: string;
+  targets: Record<Division, Record<string, number>>;
+  daysElapsed: number;
+  daysInMonth: number;
+  workDaysElapsed: number;
+  workDaysInMonth: number;
 }) {
   const totals = DIVISIONS.reduce(
     (acc, d) => {
       const m = divisions[d];
+      const t = targets[d];
       acc.leads += m.leads_funded + m.leads_organic;
       acc.funded += m.leads_funded;
       acc.organic += m.leads_organic;
       acc.arrivals += m.arrivals_funded_organic + m.arrivals_mailing;
       acc.closings += m.closings_funded_organic + m.closings_mailing;
       acc.revenue += m.revenue_funded_organic + m.revenue_mailing;
+      acc.targetLeads += (t.leads_funded ?? 0) + (t.leads_organic ?? 0) + (t.leads_mailing ?? 0);
+      acc.targetArrivals += (t.arrivals_funded_organic ?? 0) + (t.arrivals_mailing ?? 0);
+      acc.targetClosings += (t.closings_funded_organic ?? 0) + (t.closings_mailing ?? 0);
+      acc.targetRevenue += (t.revenue_funded_organic ?? 0) + (t.revenue_mailing ?? 0);
+      if (Object.keys(t).length > 0) acc.hasTargets = true;
       return acc;
     },
-    { leads: 0, funded: 0, organic: 0, arrivals: 0, closings: 0, revenue: 0 }
+    {
+      leads: 0,
+      funded: 0,
+      organic: 0,
+      arrivals: 0,
+      closings: 0,
+      revenue: 0,
+      targetLeads: 0,
+      targetArrivals: 0,
+      targetClosings: 0,
+      targetRevenue: 0,
+      hasTargets: false,
+    }
+  );
+
+  const leadsKadav = calcLeadsKadav(totals.leads, totals.hasTargets ? totals.targetLeads : undefined, daysElapsed, daysInMonth);
+  const arrivalsKadav = calcWorkdayKadav(
+    totals.arrivals,
+    totals.hasTargets ? totals.targetArrivals : undefined,
+    workDaysElapsed,
+    workDaysInMonth
+  );
+  const closingsKadav = calcWorkdayKadav(
+    totals.closings,
+    totals.hasTargets ? totals.targetClosings : undefined,
+    workDaysElapsed,
+    workDaysInMonth
+  );
+  const revenueKadav = calcWorkdayKadav(
+    totals.revenue,
+    totals.hasTargets ? totals.targetRevenue : undefined,
+    workDaysElapsed,
+    workDaysInMonth
   );
 
   return (
@@ -59,6 +110,7 @@ export function OverviewRealCard({
           <div className="l">אורגני</div>
         </div>
       </div>
+      <KadavRow result={leadsKadav} />
 
       <div className="real-table">
         <div className="real-row head">
@@ -107,6 +159,25 @@ export function OverviewRealCard({
             <span className="value">{formatCurrency(totals.revenue)}</span>
           </div>
         </div>
+      </div>
+
+      <div>
+        <p className="section-label" style={{ marginBottom: 8 }}>
+          הגעות — קד&quot;ב מול יעד
+        </p>
+        <KadavRow result={arrivalsKadav} />
+      </div>
+      <div>
+        <p className="section-label" style={{ marginBottom: 8 }}>
+          סגירות — קד&quot;ב מול יעד
+        </p>
+        <KadavRow result={closingsKadav} />
+      </div>
+      <div>
+        <p className="section-label" style={{ marginBottom: 8 }}>
+          הכנסות — קד&quot;ב מול יעד
+        </p>
+        <KadavRow result={revenueKadav} isCurrency />
       </div>
 
       <p className="real-note">

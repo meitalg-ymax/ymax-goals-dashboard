@@ -1,8 +1,8 @@
 import { TECH_TYPE_VALUES } from "./queries";
 import type { LeadRow, InvalidLeadRow, ArrivalRow, ClosingRow, MailingLeadRow } from "./queries";
 
-export type Division = "ymax" | "body" | "tech" | "doctor";
-export const DIVISIONS: Division[] = ["ymax", "body", "tech", "doctor"];
+export type Division = "ymax" | "body" | "tech" | "doctor" | "mira_dry";
+export const DIVISIONS: Division[] = ["ymax", "body", "tech", "doctor", "mira_dry"];
 
 export type MetricRow = { division: Division; metric: string; value: number };
 export type ReasonRow = { division: Division; reason: string; count: number };
@@ -25,7 +25,7 @@ export function classifyPaidOrganic(source: string | undefined): "paid" | "organ
 // specific division row (matches the "31 unclassified leads" note).
 function divisionFromSourceText(source: string | undefined): Division | null {
   const s = (source ?? "").toLowerCase();
-  if (s.includes("mira dry")) return "tech";
+  if (s.includes("mira dry")) return "mira_dry";
   if (s.includes("ymax")) return "ymax";
   if (s.includes("doctor")) return "doctor";
   if (s.includes("tech")) return "tech";
@@ -49,9 +49,11 @@ export function classifyDivisionFromSource(source: string | undefined, type?: st
 
 // Division from the `type` field -- used for every metric EXCEPT the leads
 // count (invalid leads, arrivals, closings, revenue). tech is a rollup of
-// several type values (TECH_TYPE_VALUES).
+// several type values (TECH_TYPE_VALUES); mira dry is its own division, no
+// longer folded into tech (confirmed 2026-08-11).
 export function classifyDivisionFromType(type: string | undefined): Division | null {
   const t = (type ?? "").toLowerCase().trim();
+  if (t === "mira dry") return "mira_dry";
   if (TECH_TYPE_VALUES.includes(t)) return "tech";
   if (t === "ymax") return "ymax";
   if (t === "body") return "body";

@@ -13,6 +13,7 @@ const DIVISION_TABS: TabDef[] = [
   { id: "ymax", label: "ymax" },
   { id: "body", label: "body" },
   { id: "tech", label: "tech" },
+  { id: "mira_dry", label: "mira dry" },
   { id: "doctor", label: "doctor" },
 ];
 
