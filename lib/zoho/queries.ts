@@ -30,13 +30,27 @@ export function hebrewMonthYearTag(monthDate: Date): string {
 
 export type LeadRow = { id: string; Lead_Source?: string; type?: string };
 
+// Lead_Source values that mean "this is actually a mailing-channel lead" --
+// excluded from the base leads report so a lead doesn't get double-counted
+// there AND in fetchMailingLeadsForMonth (which finds the same leads by Tag,
+// not Created_Time, so the two queries can otherwise overlap). Confirmed
+// against Meital's own Zoho list-view filter (2026-08-12) -- match hers
+// exactly here, don't try to generalize to "contains דיוור".
+const MAILING_SOURCE_EXCLUSIONS = ["דיוור - הזרקות", "ymax - דיוור", "נאל", "דיוור וואצאפ", "דיוור - גוף"];
+
 // Leads created this month -- classified ממומן/אורגני/division by Lead_Source
-// text (NOT by `type`, per the standing rule). No COQL-side type filter --
-// classification happens in transform.ts to match the exact manual methodology.
+// text (NOT by `type`, per the standing rule). Two COQL-side filters added
+// 2026-08-12 to match Meital's own Zoho list-view filter exactly: type must
+// be set (a lead with no type at all isn't in her report either, even if
+// Lead_Source alone would resolve a division), and the known mailing-source
+// values are excluded up front. Division/paid-organic classification itself
+// still happens in transform.ts.
 export async function fetchLeadsForMonth(range: MonthRange): Promise<LeadRow[]> {
   const query = `select id, Lead_Source, type from Leads where ${andAll([
     `Created_Time >= '${range.monthStartDateTimeStr}'`,
     `Created_Time <= '${range.yesterdayEndDateTimeStr}'`,
+    `type is not null`,
+    ...MAILING_SOURCE_EXCLUSIONS.map((s) => `Lead_Source not like '%${s}%'`),
   ])}`;
   return runCoqlAll(query) as Promise<LeadRow[]>;
 }
