@@ -938,12 +938,27 @@ a {
 .money-outcome {
   background: var(--surface-2);
   border-radius: 16px;
-  padding: 14px 16px;
+  padding: 16px 18px;
   border: 1px solid rgba(201, 165, 92, 0.35);
-  box-shadow: 0 0 0 4px rgba(201, 165, 92, 0.05) inset;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
+}
+/* .stat-box normally matches its own card's background (see .subfunnel-panel
+   above) -- inside money-outcome it must switch to --surface, otherwise the
+   3 neutral boxes vanish into the identical --surface-2 card behind them and
+   only the colored pct box reads, looking like a stray chip instead of a row. */
+.money-outcome .stat-box {
+  background: var(--surface);
+}
+.money-outcome .stat-box.pct.good {
+  background: var(--good-bg);
+}
+.money-outcome .stat-box.pct.warn {
+  background: var(--warn-bg);
+}
+.money-outcome .stat-box.pct.critical {
+  background: var(--critical-bg);
 }
 .money-head {
   display: flex;
