@@ -11,33 +11,64 @@ const DIVISION_LABELS: Record<Division, string> = {
   doctor: "doctor",
 };
 
-const COLS = "1.4fr 1fr 1fr 1fr 1fr";
+const DIVISION_COLORS: Record<Division, string> = {
+  ymax: "var(--series-ymax)",
+  body: "var(--series-body)",
+  tech: "var(--series-tech)",
+  mira_dry: "var(--series-mira_dry)",
+  doctor: "var(--series-doctor)",
+};
 
-function Row({
+function HeroTile({
   label,
   result,
   isCurrency,
-  bold,
+  total,
 }: {
   label: string;
   result: KadavResult | null;
   isCurrency?: boolean;
-  bold?: boolean;
+  total?: boolean;
 }) {
   const fmt = isCurrency ? formatCurrency : formatNumber;
-  const status = result?.status;
   return (
-    <div className="real-row" style={{ gridTemplateColumns: COLS, fontWeight: bold ? 700 : 400 }}>
-      <span className="rname">{label}</span>
-      <span>{result ? fmt(result.target) : "—"}</span>
-      <span>{result ? fmt(result.actual) : "—"}</span>
-      <span>{result ? fmt(result.kadav) : "—"}</span>
-      <span
-        className={status ? `chip ${status}` : undefined}
-        style={{ width: "fit-content", justifySelf: "start" }}
-      >
-        {result?.pct !== null && result?.pct !== undefined ? `${Math.round(result.pct)}%` : "—"}
-      </span>
+    <div className={`extra-tile${total ? " total" : ""}`}>
+      <span className="et-label">{label}</span>
+      <span className="et-value">{result ? fmt(result.actual) : "—"}</span>
+      {result && (
+        <div className="mini-stat-row">
+          <div className="mini-stat">
+            <div className="ms-label">יעד</div>
+            <div className="ms-val">{fmt(result.target)}</div>
+          </div>
+          <div className="mini-stat">
+            <div className="ms-label">קד״ב</div>
+            <div className="ms-val">{fmt(result.kadav)}</div>
+          </div>
+          <div className={`mini-stat pct ${result.status ?? ""}`}>
+            <div className="ms-label">אחוז</div>
+            <div className="ms-val">{result.pct !== null ? `${Math.round(result.pct)}%` : "—"}</div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MetricBar({ label, result, isCurrency }: { label: string; result: KadavResult; isCurrency?: boolean }) {
+  const fmt = isCurrency ? formatCurrency : formatNumber;
+  const barWidth = result.pct === null ? 0 : Math.max(Math.min(result.pct, 100), result.actual > 0 ? 3 : 0);
+  return (
+    <div className="ov-metric">
+      <div className="ov-metric-top">
+        <span className="ov-metric-label">{label}</span>
+        <span className="ov-metric-nums">
+          {fmt(result.actual)} <span className="target">/ {result.target ? fmt(result.target) : "—"}</span>
+        </span>
+      </div>
+      <div className="ov-bar-track">
+        <div className={`ov-bar-fill ${result.status ?? ""}`} style={{ width: `${barWidth}%` }} />
+      </div>
     </div>
   );
 }
@@ -143,51 +174,48 @@ export function OverviewKadavTable({
   const grandMoneyKadav = calcWorkdayKadav(grandMoneyActual, grandMoneyTarget || undefined, workDaysElapsed, workDaysInMonth);
 
   return (
-    <div className="real-card">
-      <div className="real-head">
-        <div className="real-title">
-          <h2>מבט כללי — יעד מול ביצוע</h2>
-          <span className="real-badge">✓ נתון חי</span>
+    <>
+      <div className="extra-revenue">
+        <p className="section-label" style={{ margin: 0 }}>
+          סה״כ הכל — כלל החברה
+        </p>
+        <div className="extra-grid">
+          <HeroTile label="סה״כ לידים" result={grandLeadsKadav} />
+          <HeroTile label="סה״כ הגעות" result={grandArrivalsKadav} />
+          <HeroTile label="סה״כ סגירות" result={grandClosingsKadav} />
+          <HeroTile label="סה״כ כסף (כולל מוצרים וירוקים)" result={grandMoneyKadav} isCurrency total />
         </div>
       </div>
 
-      <div className="real-table">
-        <div className="real-row head" style={{ gridTemplateColumns: COLS }}>
-          <span>מדד</span>
-          <span>יעד</span>
-          <span>ביצוע</span>
-          <span>קד&quot;ב</span>
-          <span>אחוז קד&quot;ב</span>
-        </div>
+      <div>
+        <p className="section-label" style={{ marginBottom: 10 }}>
+          מבט כללי — לפי חטיבה
+        </p>
+        <div className="ov-grid">
+          {rows.map(({ division, leadsKadav, arrivalsKadav, closingsKadav, moneyKadav }) => (
+            <div className="ov-card" key={division}>
+              <div className="ov-card-head">
+                <span className="ov-dot" style={{ background: DIVISION_COLORS[division] }} />
+                <span className="ov-card-name">{DIVISION_LABELS[division]}</span>
+                {moneyKadav.pct !== null && (
+                  <span className={`chip ${moneyKadav.status ?? ""}`}>{Math.round(moneyKadav.pct)}%</span>
+                )}
+              </div>
+              <MetricBar label="לידים" result={leadsKadav} />
+              <MetricBar label="הגעות" result={arrivalsKadav} />
+              <MetricBar label="סגירות" result={closingsKadav} />
+              <MetricBar label="כסף" result={moneyKadav} isCurrency />
+            </div>
+          ))}
 
-        {rows.map(({ division, leadsKadav, arrivalsKadav, closingsKadav, moneyKadav }) => (
-          <div key={division} style={{ marginTop: 6 }}>
-            <p className="section-label" style={{ margin: "0 0 6px" }}>
-              {DIVISION_LABELS[division]}
-            </p>
-            <Row label="סה״כ לידים" result={leadsKadav} />
-            <Row label="סה״כ הגעות" result={arrivalsKadav} />
-            <Row label="סה״כ סגירות" result={closingsKadav} />
-            <Row label="סה״כ כסף" result={moneyKadav} isCurrency />
+          <div className="ov-card">
+            <div className="ov-card-head">
+              <span className="ov-dot" style={{ background: "var(--gold)" }} />
+              <span className="ov-card-name">מוצרים וירוקים — כלל החברה</span>
+            </div>
+            <MetricBar label="מכירת מוצרים (כללי)" result={productsKadav} isCurrency />
+            <MetricBar label="ירוקים (הפניות)" result={referralsKadav} isCurrency />
           </div>
-        ))}
-
-        <div style={{ marginTop: 6 }}>
-          <p className="section-label" style={{ margin: "0 0 6px" }}>
-            מוצרים וירוקים — כלל החברה
-          </p>
-          <Row label="מכירת מוצרים (כללי)" result={productsKadav} isCurrency />
-          <Row label="ירוקים (הפניות)" result={referralsKadav} isCurrency />
-        </div>
-
-        <div style={{ marginTop: 10, borderTop: "2px solid var(--border)", paddingTop: 10 }}>
-          <p className="section-label" style={{ margin: "0 0 6px" }}>
-            סה״כ הכל
-          </p>
-          <Row label="סה״כ לידים" result={grandLeadsKadav} bold />
-          <Row label="סה״כ הגעות" result={grandArrivalsKadav} bold />
-          <Row label="סה״כ סגירות" result={grandClosingsKadav} bold />
-          <Row label="סה״כ כסף (כולל מוצרים וירוקים)" result={grandMoneyKadav} isCurrency bold />
         </div>
       </div>
 
@@ -198,6 +226,6 @@ export function OverviewKadavTable({
         <strong style={{ color: "var(--ink)" }}>מוצרים</strong> הן מכירות מוצרים כלליות שלא משויכות לחטיבה ספציפית, עם
         יעד כלל-חברתי משלהן (מוזן ב&quot;הזנת יעדים&quot;).
       </p>
-    </div>
+    </>
   );
 }

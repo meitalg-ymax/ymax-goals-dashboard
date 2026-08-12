@@ -8,6 +8,7 @@ import { DivisionRealCard } from "@/components/dashboard/DivisionRealCard";
 import { DivisionDetailTable } from "@/components/dashboard/DivisionDetailTable";
 import { OverviewKadavTable } from "@/components/dashboard/OverviewKadavTable";
 import { RevenueTypePie } from "@/components/dashboard/RevenueTypePie";
+import { RevenueByDivisionPie } from "@/components/dashboard/RevenueByDivisionPie";
 import { RapidCategoryBreakdown } from "@/components/dashboard/RapidCategoryBreakdown";
 import type { DashboardData } from "@/lib/dashboard/getDashboardData";
 import { DIVISIONS, type Division } from "@/lib/zoho/transform";
@@ -77,6 +78,21 @@ export function DashboardShell({ data }: { data: DashboardData }) {
 
       {activeTab === "overview" && (
         <div className="tabpanel">
+          <div className="pie-row">
+            <div className="real-card">
+              <p className="section-label" style={{ margin: "0 0 4px" }}>
+                הכנסה לפי חטיבה
+              </p>
+              <RevenueByDivisionPie divisions={data.divisions} rapidCategories={data.rapidCategories} />
+            </div>
+            <div className="real-card">
+              <p className="section-label" style={{ margin: "0 0 4px" }}>
+                הכנסה לפי סוג
+              </p>
+              <RevenueTypePie divisions={data.divisions} rapidCategories={data.rapidCategories} />
+            </div>
+          </div>
+
           <OverviewKadavTable
             divisions={data.divisions}
             targets={data.targets}
@@ -87,12 +103,6 @@ export function DashboardShell({ data }: { data: DashboardData }) {
             workDaysElapsed={data.workDaysElapsed}
             workDaysInMonth={data.workDaysInMonth}
           />
-          <div className="real-card">
-            <p className="section-label" style={{ margin: "0 0 4px" }}>
-              חלוקת הכנסה כלל-חברתית לפי סוג
-            </p>
-            <RevenueTypePie divisions={data.divisions} rapidCategories={data.rapidCategories} />
-          </div>
           <RapidCategoryBreakdown categories={data.rapidCategories} />
         </div>
       )}

@@ -18,10 +18,13 @@
   --critical: #b15c78;
   --critical-bg: #f5e3ea;
 
+  /* categorical division colors -- validated for CVD separation as a set:
+     node scripts/validate_palette.js "#5e4a8a,#dd7fa6,#1f8f75,#c9a55c,#3468a8" --mode light */
   --series-ymax: #5e4a8a;
   --series-body: #dd7fa6;
-  --series-tech: #7d9c93;
+  --series-tech: #1f8f75;
   --series-doctor: #c9a55c;
+  --series-mira_dry: #3468a8;
 }
 * {
   box-sizing: border-box;
@@ -1144,6 +1147,95 @@ a {
   color: var(--ink);
   min-width: 44px;
   text-align: left;
+}
+
+.pie-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+@media (max-width: 760px) {
+  .pie-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* overview -- per-division cards with mini bars, replacing a wall of
+   stacked target/actual/קד"ב text rows with something scannable at a glance. */
+.ov-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 14px;
+}
+.ov-card {
+  background: var(--surface);
+  border-radius: 18px;
+  box-shadow: var(--shadow);
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.ov-card-head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.ov-dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  flex: none;
+}
+.ov-card-name {
+  font-size: 14.5px;
+  font-weight: 700;
+  color: var(--ink);
+  flex: 1;
+}
+.ov-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.ov-metric-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+.ov-metric-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.ov-metric-nums {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.ov-metric-nums .target {
+  font-weight: 400;
+  color: var(--muted);
+}
+.ov-bar-track {
+  height: 6px;
+  border-radius: 100px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.ov-bar-fill {
+  height: 100%;
+  border-radius: 100px;
+}
+.ov-bar-fill.good {
+  background: var(--good);
+}
+.ov-bar-fill.warn {
+  background: #9c7a35;
+}
+.ov-bar-fill.critical {
+  background: var(--critical);
 }
 
 .trend-note {
