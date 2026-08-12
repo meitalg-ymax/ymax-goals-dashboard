@@ -38,6 +38,16 @@ function RatioRow({ label, target, actual, isCurrency }: { label: string; target
   );
 }
 
+function SectionHeader({ label }: { label: string }) {
+  return (
+    <div className="real-row" style={{ gridTemplateColumns: "1fr", marginTop: 10 }}>
+      <span className="section-label" style={{ margin: 0 }}>
+        {label}
+      </span>
+    </div>
+  );
+}
+
 function PlainRow({ label, value }: { label: string; value: number }) {
   return (
     <div className="real-row" style={{ gridTemplateColumns: COLS }}>
@@ -130,12 +140,11 @@ export function DivisionDetailTable({
       <PacedRow label="תקציב ממומן" result={calendar(budgetActual, t("budget_funded"))} isCurrency />
       <RatioRow label="עלות ליד ממומן" target={t("cost_per_lead_funded")} actual={costPerLeadActual} isCurrency />
 
+      <SectionHeader label="ממומן + אורגני" />
       <PacedRow label="לידים ממומן+אורגני" result={calendar(leadsFO, leadsFOTarget)} bold />
       <PacedRow label="לידים ממומן" result={calendar(metrics.leads_funded, t("leads_funded"))} />
       <PacedRow label="לידים אורגני" result={calendar(metrics.leads_organic, t("leads_organic"))} />
       <PlainRow label="לידים לא תקינים (ממומן)" value={metrics.invalid_leads_funded} />
-      <PacedRow label="לידים דיוור" result={calendar(metrics.leads_mailing, t("leads_mailing"))} />
-
       <PacedRow
         label="הגעות ממומן+אורגני"
         result={workday(metrics.arrivals_funded_organic, t("arrivals_funded_organic"))}
@@ -152,7 +161,15 @@ export function DivisionDetailTable({
         target={t("conversion_arrival_closing_funded_organic")}
         actual={convArrivalClosingFO}
       />
+      <PacedRow
+        label="כסף ממומן+אורגני"
+        result={workday(metrics.revenue_funded_organic, t("revenue_funded_organic"))}
+        isCurrency
+      />
+      <RatioRow label="שווי עסקה ממוצע (ממומן+אורגני)" target={t("avg_deal_value_funded_organic")} actual={avgDealFO} isCurrency />
 
+      <SectionHeader label="דיוור" />
+      <PacedRow label="לידים דיוור" result={calendar(metrics.leads_mailing, t("leads_mailing"))} bold />
       <PacedRow label="הגעות דיוור" result={workday(metrics.arrivals_mailing, t("arrivals_mailing"))} />
       <RatioRow label="% המרה ליד→הגעה (דיוור)" target={t("conversion_lead_arrival_mailing")} actual={convLeadArrivalMail} />
       <PacedRow label="סגירות דיוור" result={workday(metrics.closings_mailing, t("closings_mailing"))} />
@@ -161,16 +178,10 @@ export function DivisionDetailTable({
         target={t("conversion_arrival_closing_mailing")}
         actual={convArrivalClosingMail}
       />
-
-      <PacedRow
-        label="כסף ממומן+אורגני"
-        result={workday(metrics.revenue_funded_organic, t("revenue_funded_organic"))}
-        isCurrency
-      />
-      <RatioRow label="שווי עסקה ממוצע (ממומן+אורגני)" target={t("avg_deal_value_funded_organic")} actual={avgDealFO} isCurrency />
       <PacedRow label="כסף דיוור" result={workday(metrics.revenue_mailing, t("revenue_mailing"))} isCurrency />
       <RatioRow label="שווי עסקה ממוצע (דיוור)" target={t("avg_deal_value_mailing")} actual={avgDealMail} isCurrency />
 
+      <SectionHeader label="הכנסות נוספות" />
       <PacedRow label="ספה ושדרוגים" result={workday(spaActual, t("revenue_spa_upgrades"))} isCurrency />
       <UnsplitRow label="ירוקים (הפניות)" target={t("revenue_referrals")} isCurrency />
 
