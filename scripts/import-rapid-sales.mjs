@@ -124,9 +124,16 @@ async function main() {
     }
   }
 
-  // Full replace for the month: clear old rows first so a category that
-  // disappeared between runs doesn't linger.
-  const { error: deleteError } = await supabase.from("rapid_sales_categories").delete().eq("month", month);
+  // Replace this script's own categories for the month only -- rapid_sales_categories
+  // also holds rows from other imports (e.g. referrals), which must survive.
+  // Clearing by category (not by month alone) is what makes that safe, and
+  // also drops a category that had money last run but ₪0 this run.
+  const knownCategories = [...Object.keys(CATEGORY_TO_DIVISION), PRODUCTS_LABEL, ...unmapped.map((u) => u.category)];
+  const { error: deleteError } = await supabase
+    .from("rapid_sales_categories")
+    .delete()
+    .eq("month", month)
+    .in("category", knownCategories);
   if (deleteError) throw new Error(`Failed to clear old category rows: ${deleteError.message}`);
 
   const { error: insertError } = await supabase.from("rapid_sales_categories").insert(
