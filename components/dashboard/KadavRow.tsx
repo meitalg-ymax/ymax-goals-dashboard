@@ -1,6 +1,37 @@
 import type { KadavResult } from "@/lib/metrics/pacing";
 import { formatCurrency, formatNumber } from "@/lib/metrics/format";
 
+// The "כסף" outcome at the end of a funnel isn't a further-filtered count
+// like leads/arrivals/closings, so it gets its own card (with a subtle gold
+// ring, not a taper) instead of extending the funnel shape a 4th stage.
+export function MoneyOutcome({
+  title,
+  result,
+  avgDealActual,
+  avgDealTarget,
+}: {
+  title: string;
+  result: KadavResult;
+  avgDealActual: number;
+  avgDealTarget: number;
+}) {
+  return (
+    <div className="money-outcome">
+      <div className="money-head">
+        <span className="m-label">{title}</span>
+        <span className="m-value">{formatCurrency(result.actual)}</span>
+      </div>
+      <KadavRow result={result} isCurrency />
+      {avgDealActual > 0 && (
+        <p className="money-avg">
+          שווי עסקה ממוצע: <strong>{formatCurrency(avgDealActual)}</strong>
+          {avgDealTarget > 0 && <> (יעד {formatCurrency(avgDealTarget)})</>}
+        </p>
+      )}
+    </div>
+  );
+}
+
 export function StageBlock({
   title,
   note,

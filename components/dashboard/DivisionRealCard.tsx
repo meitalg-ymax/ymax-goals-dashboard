@@ -1,9 +1,9 @@
 import Link from "next/link";
 import type { Division } from "@/lib/zoho/transform";
-import type { DivisionMetrics, InvalidReason } from "@/lib/dashboard/getDashboardData";
+import type { DivisionMetrics, InvalidReason, RapidCategory } from "@/lib/dashboard/getDashboardData";
 import { formatCurrency, formatNumber } from "@/lib/metrics/format";
 import { calcLeadsKadav, calcWorkdayKadav } from "@/lib/metrics/pacing";
-import { StageBlock } from "@/components/dashboard/KadavRow";
+import { StageBlock, MoneyOutcome } from "@/components/dashboard/KadavRow";
 import { FunnelShape } from "@/components/dashboard/FunnelShape";
 
 function pct(numerator: number, denominator: number): string {
@@ -18,6 +18,7 @@ export function DivisionRealCard({
   asOf,
   targets,
   rapidActuals,
+  rapidCategories,
   daysElapsed,
   daysInMonth,
   workDaysElapsed,
@@ -29,46 +30,62 @@ export function DivisionRealCard({
   asOf: string | null;
   targets: Record<string, number>;
   rapidActuals: Record<string, number>;
+  rapidCategories: RapidCategory[];
   daysElapsed: number;
   daysInMonth: number;
   workDaysElapsed: number;
   workDaysInMonth: number;
 }) {
-  const totalLeads = metrics.leads_funded + metrics.leads_organic;
-  const totalArrivals = metrics.arrivals_funded_organic + metrics.arrivals_mailing;
-  const totalClosings = metrics.closings_funded_organic + metrics.closings_mailing;
-  const totalRevenue = metrics.revenue_funded_organic + metrics.revenue_mailing;
+  const leadsFO = metrics.leads_funded + metrics.leads_organic;
+  const arrivalsFO = metrics.arrivals_funded_organic;
+  const closingsFO = metrics.closings_funded_organic;
+  const revenueFO = metrics.revenue_funded_organic;
+  const avgDealFOActual = closingsFO > 0 ? revenueFO / closingsFO : 0;
 
-  const targetLeads = targets.leads_funded + targets.leads_organic + targets.leads_mailing;
-  const hasLeadsTarget = targets.leads_funded || targets.leads_organic || targets.leads_mailing;
-  const leadsKadav = calcLeadsKadav(totalLeads, hasLeadsTarget ? targetLeads : undefined, daysElapsed, daysInMonth);
+  const leadsMail = metrics.leads_mailing;
+  const arrivalsMail = metrics.arrivals_mailing;
+  const closingsMail = metrics.closings_mailing;
+  const revenueMail = metrics.revenue_mailing;
+  const avgDealMailActual = closingsMail > 0 ? revenueMail / closingsMail : 0;
+
+  const targetLeadsFO = targets.leads_funded + targets.leads_organic;
+  const leadsFOKadav = calcLeadsKadav(leadsFO, targetLeadsFO || undefined, daysElapsed, daysInMonth);
+  const arrivalsFOKadav = calcWorkdayKadav(arrivalsFO, targets.arrivals_funded_organic || undefined, workDaysElapsed, workDaysInMonth);
+  const closingsFOKadav = calcWorkdayKadav(closingsFO, targets.closings_funded_organic || undefined, workDaysElapsed, workDaysInMonth);
+  const revenueFOKadav = calcWorkdayKadav(revenueFO, targets.revenue_funded_organic || undefined, workDaysElapsed, workDaysInMonth);
+
+  const leadsMailKadav = calcLeadsKadav(leadsMail, targets.leads_mailing || undefined, daysElapsed, daysInMonth);
+  const arrivalsMailKadav = calcWorkdayKadav(arrivalsMail, targets.arrivals_mailing || undefined, workDaysElapsed, workDaysInMonth);
+  const closingsMailKadav = calcWorkdayKadav(closingsMail, targets.closings_mailing || undefined, workDaysElapsed, workDaysInMonth);
+  const revenueMailKadav = calcWorkdayKadav(revenueMail, targets.revenue_mailing || undefined, workDaysElapsed, workDaysInMonth);
+
+  const totalLeads = leadsFO + leadsMail;
+  const totalArrivals = arrivalsFO + arrivalsMail;
+  const totalClosings = closingsFO + closingsMail;
+  const totalRevenueCRM = revenueFO + revenueMail;
+
+  const targetLeads = targetLeadsFO + targets.leads_mailing;
+  const leadsKadav = calcLeadsKadav(totalLeads, targetLeads || undefined, daysElapsed, daysInMonth);
 
   const targetArrivals = targets.arrivals_funded_organic + targets.arrivals_mailing;
-  const hasArrivalsTarget = targets.arrivals_funded_organic || targets.arrivals_mailing;
-  const arrivalsKadav = calcWorkdayKadav(
-    totalArrivals,
-    hasArrivalsTarget ? targetArrivals : undefined,
-    workDaysElapsed,
-    workDaysInMonth
-  );
+  const arrivalsKadav = calcWorkdayKadav(totalArrivals, targetArrivals || undefined, workDaysElapsed, workDaysInMonth);
 
   const targetClosings = targets.closings_funded_organic + targets.closings_mailing;
-  const hasClosingsTarget = targets.closings_funded_organic || targets.closings_mailing;
-  const closingsKadav = calcWorkdayKadav(
-    totalClosings,
-    hasClosingsTarget ? targetClosings : undefined,
-    workDaysElapsed,
-    workDaysInMonth
-  );
+  const closingsKadav = calcWorkdayKadav(totalClosings, targetClosings || undefined, workDaysElapsed, workDaysInMonth);
 
   const targetRevenue = targets.revenue_funded_organic + targets.revenue_mailing;
-  const hasRevenueTarget = targets.revenue_funded_organic || targets.revenue_mailing;
-  const revenueKadav = calcWorkdayKadav(
-    totalRevenue,
-    hasRevenueTarget ? targetRevenue : undefined,
-    workDaysElapsed,
-    workDaysInMonth
-  );
+  const revenueKadav = calcWorkdayKadav(totalRevenueCRM, targetRevenue || undefined, workDaysElapsed, workDaysInMonth);
+
+  // ספה/שדרוגים actual: prefer the imported category rows (scripts/import-rapid-sales.mjs
+  // writes the SAME number into manual_entries too, so summing both would double-count).
+  const spaFromCategories = rapidCategories.filter((c) => c.division === division).reduce((s, c) => s + c.amount, 0);
+  const spaActual = spaFromCategories > 0 ? spaFromCategories : (rapidActuals.revenue_spa_upgrades ?? 0);
+  const spaKadav = calcWorkdayKadav(spaActual, targets.revenue_spa_upgrades || undefined, workDaysElapsed, workDaysInMonth);
+
+  // ירוקים excluded -- company-wide only, can't be attributed to this division (see overview).
+  const totalMoneyActual = totalRevenueCRM + spaActual;
+  const totalMoneyTarget = targets.revenue_funded_organic + targets.revenue_mailing + targets.revenue_spa_upgrades;
+  const totalMoneyKadav = calcWorkdayKadav(totalMoneyActual, totalMoneyTarget || undefined, workDaysElapsed, workDaysInMonth);
 
   const budgetTarget = targets.budget_funded;
   const budgetActual = rapidActuals.budget_funded ?? 0;
@@ -91,25 +108,6 @@ export function DivisionRealCard({
           </span>
         )}
       </div>
-
-      <FunnelShape leads={totalLeads} arrivals={totalArrivals} closings={totalClosings} />
-
-      <StageBlock title="לידים" result={leadsKadav} />
-      <StageBlock
-        title="הגעות"
-        note={`(${pct(totalArrivals, totalLeads)} מהלידים)`}
-        result={arrivalsKadav}
-      />
-      <StageBlock
-        title="סגירות"
-        note={`(${pct(totalClosings, totalArrivals)} מהמגיעות)`}
-        result={closingsKadav}
-      />
-      <StageBlock
-        title="הכנסות (CRM בלבד)"
-        result={revenueKadav}
-        isCurrency
-      />
 
       <div className="extra-revenue">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -179,21 +177,110 @@ export function DivisionRealCard({
       </div>
 
       <div>
-        <p className="section-label" style={{ marginBottom: 8 }}>
-          פירוט לידים
+        <p className="section-label" style={{ marginBottom: 10 }}>
+          המשפך הכללי — כל הערוצים ביחד
         </p>
-        <div className="real-summary" style={{ gridTemplateColumns: "repeat(3,1fr)" }}>
-          <div className="real-tile">
-            <div className="n">{formatNumber(metrics.leads_funded)}</div>
-            <div className="l">ממומן</div>
+        <FunnelShape leads={totalLeads} arrivals={totalArrivals} closings={totalClosings} />
+        <StageBlock title="לידים" result={leadsKadav} />
+        <StageBlock title="הגעות" note={`(${pct(totalArrivals, totalLeads)} מהלידים)`} result={arrivalsKadav} />
+        <StageBlock title="סגירות" note={`(${pct(totalClosings, totalArrivals)} מהמגיעות)`} result={closingsKadav} />
+        <MoneyOutcome
+          title="כסף (CRM)"
+          result={revenueKadav}
+          avgDealActual={totalClosings > 0 ? totalRevenueCRM / totalClosings : 0}
+          avgDealTarget={0}
+        />
+      </div>
+
+      <div>
+        <p className="section-label" style={{ marginBottom: 10 }}>
+          אותו משפך, לפי ערוץ
+        </p>
+        <div className="subfunnels">
+          <div className="subfunnel-panel">
+            <p className="subfunnel-title">
+              ממומן + אורגני
+              <span className="sub">
+                {formatNumber(metrics.leads_funded)} ממומן · {formatNumber(metrics.leads_organic)} אורגני
+              </span>
+            </p>
+            <FunnelShape leads={leadsFO} arrivals={arrivalsFO} closings={closingsFO} />
+            <StageBlock title="לידים" result={leadsFOKadav} />
+            <StageBlock title="הגעות" note={`(${pct(arrivalsFO, leadsFO)} מהלידים)`} result={arrivalsFOKadav} />
+            <StageBlock title="סגירות" note={`(${pct(closingsFO, arrivalsFO)} מהמגיעות)`} result={closingsFOKadav} />
+            <MoneyOutcome
+              title="כסף"
+              result={revenueFOKadav}
+              avgDealActual={avgDealFOActual}
+              avgDealTarget={targets.avg_deal_value_funded_organic ?? 0}
+            />
           </div>
-          <div className="real-tile">
-            <div className="n">{formatNumber(metrics.leads_organic)}</div>
-            <div className="l">אורגני</div>
+          <div className="subfunnel-panel">
+            <p className="subfunnel-title">
+              דיוור
+              <span className="sub">ערוץ שני, נפרד מהממומן</span>
+            </p>
+            <FunnelShape leads={leadsMail} arrivals={arrivalsMail} closings={closingsMail} />
+            <StageBlock title="לידים" result={leadsMailKadav} />
+            <StageBlock title="הגעות" note={`(${pct(arrivalsMail, leadsMail)} מהלידים)`} result={arrivalsMailKadav} />
+            <StageBlock title="סגירות" note={`(${pct(closingsMail, arrivalsMail)} מהמגיעות)`} result={closingsMailKadav} />
+            <MoneyOutcome
+              title="כסף"
+              result={revenueMailKadav}
+              avgDealActual={avgDealMailActual}
+              avgDealTarget={targets.avg_deal_value_mailing ?? 0}
+            />
           </div>
-          <div className="real-tile">
-            <div className="n">{formatNumber(metrics.leads_mailing)}</div>
-            <div className="l">מדיוור</div>
+        </div>
+      </div>
+
+      <div className="extra-revenue">
+        <p className="section-label" style={{ margin: 0 }}>
+          הכנסות נוספות
+        </p>
+        <div className="extra-grid">
+          <div className="extra-tile">
+            <span className="et-label">ספה ושדרוגים</span>
+            <span className="et-value" style={{ color: spaKadav.status === "good" ? "var(--good)" : "var(--ink)" }}>
+              {formatCurrency(spaActual)}
+            </span>
+            <div className="mini-stat-row">
+              <div className="mini-stat">
+                <div className="ms-label">יעד</div>
+                <div className="ms-val">{formatCurrency(targets.revenue_spa_upgrades ?? 0)}</div>
+              </div>
+              <div className="mini-stat">
+                <div className="ms-label">קד״ב</div>
+                <div className="ms-val">{formatCurrency(spaKadav.kadav)}</div>
+              </div>
+              <div className={`mini-stat pct ${spaKadav.status ?? ""}`}>
+                <div className="ms-label">אחוז</div>
+                <div className="ms-val">{spaKadav.pct !== null ? `${Math.round(spaKadav.pct)}%` : "—"}</div>
+              </div>
+            </div>
+          </div>
+          <div className="extra-tile">
+            <span className="et-label">ירוקים (הפניות)</span>
+            <span className="et-value">{formatCurrency(targets.revenue_referrals ?? 0)}</span>
+            <span className="et-note">יעד בלבד — מדווח כלל-חברתי, לא מחולק לפי חטיבה (ר&apos; מבט כללי)</span>
+          </div>
+          <div className="extra-tile total">
+            <span className="et-label">סה״כ כסף (החטיבה, ללא ירוקים)</span>
+            <span className="et-value">{formatCurrency(totalMoneyActual)}</span>
+            <div className="mini-stat-row">
+              <div className="mini-stat">
+                <div className="ms-label">יעד</div>
+                <div className="ms-val">{formatCurrency(totalMoneyTarget)}</div>
+              </div>
+              <div className="mini-stat">
+                <div className="ms-label">קד״ב</div>
+                <div className="ms-val">{formatCurrency(totalMoneyKadav.kadav)}</div>
+              </div>
+              <div className={`mini-stat pct ${totalMoneyKadav.status ?? ""}`}>
+                <div className="ms-label">אחוז</div>
+                <div className="ms-val">{totalMoneyKadav.pct !== null ? `${Math.round(totalMoneyKadav.pct)}%` : "—"}</div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -238,8 +325,8 @@ export function DivisionRealCard({
         חוץ מ-&quot;ig_linktree&quot; שנחשב אורגני). <strong style={{ color: "var(--ink)" }}>לא תקינים:</strong> שדה
         &quot;מעקב פניה&quot;, ממומן בלבד. <strong style={{ color: "var(--ink)" }}>הגעות:</strong> שדה &quot;זמן
         פגישת ייעוץ&quot;. <strong style={{ color: "var(--ink)" }}>סגירות והכנסות:</strong> שדה &quot;תאריך
-        יעוץ/עסקה&quot;, סטטוס ליד = נסגרה עסקה. <strong style={{ color: "var(--ink)" }}>לא כלול כאן:</strong> ספה,
-        שדרוגים וירוקים — ר&apos; הטבלה המפורטת למטה. מתעדכן אוטומטית כל יום.
+        יעוץ/עסקה&quot;, סטטוס ליד = נסגרה עסקה. <strong style={{ color: "var(--ink)" }}>ירוקים (הפניות):</strong> מדווח
+        כלל-חברתי בלבד, לא מחולק לפי חטיבה — ר&apos; מבט כללי. מתעדכן אוטומטית כל יום.
       </p>
     </div>
   );

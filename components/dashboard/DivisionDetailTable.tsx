@@ -117,11 +117,11 @@ export function DivisionDetailTable({
     metrics.arrivals_mailing > 0 ? (metrics.closings_mailing / metrics.arrivals_mailing) * 100 : 0;
   const avgDealMail = metrics.closings_mailing > 0 ? metrics.revenue_mailing / metrics.closings_mailing : 0;
 
-  // ספה/שדרוגים actual = manual rapid_actual entry + this division's raw
-  // Rapid category rows (some months may have both, e.g. a manual estimate
-  // before the real report is imported -- summed so nothing is silently lost).
+  // ספה/שדרוגים actual: prefer the imported category rows (scripts/import-rapid-sales.mjs
+  // writes the SAME number into manual_entries too, so summing both would double-count).
+  // The manual rapid_actual entry is only the real source before that import has run once.
   const spaFromCategories = rapidCategories.filter((c) => c.division === division).reduce((s, c) => s + c.amount, 0);
-  const spaActual = (rapidActuals.revenue_spa_upgrades ?? 0) + spaFromCategories;
+  const spaActual = spaFromCategories > 0 ? spaFromCategories : (rapidActuals.revenue_spa_upgrades ?? 0);
 
   // Referrals excluded from this division's total -- see UnsplitRow below.
   const totalMoneyActual = metrics.revenue_funded_organic + metrics.revenue_mailing + spaActual;

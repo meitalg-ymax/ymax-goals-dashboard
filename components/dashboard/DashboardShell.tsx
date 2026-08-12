@@ -7,6 +7,7 @@ import { SignOutButton } from "@/components/SignOutButton";
 import { DivisionRealCard } from "@/components/dashboard/DivisionRealCard";
 import { DivisionDetailTable } from "@/components/dashboard/DivisionDetailTable";
 import { OverviewKadavTable } from "@/components/dashboard/OverviewKadavTable";
+import { RevenueTypePie } from "@/components/dashboard/RevenueTypePie";
 import { RapidCategoryBreakdown } from "@/components/dashboard/RapidCategoryBreakdown";
 import type { DashboardData } from "@/lib/dashboard/getDashboardData";
 import { DIVISIONS, type Division } from "@/lib/zoho/transform";
@@ -86,6 +87,12 @@ export function DashboardShell({ data }: { data: DashboardData }) {
             workDaysElapsed={data.workDaysElapsed}
             workDaysInMonth={data.workDaysInMonth}
           />
+          <div className="real-card">
+            <p className="section-label" style={{ margin: "0 0 4px" }}>
+              חלוקת הכנסה כלל-חברתית לפי סוג
+            </p>
+            <RevenueTypePie divisions={data.divisions} rapidCategories={data.rapidCategories} />
+          </div>
           <RapidCategoryBreakdown categories={data.rapidCategories} />
         </div>
       )}
@@ -107,6 +114,7 @@ export function DashboardShell({ data }: { data: DashboardData }) {
                 asOf={data.asOf}
                 targets={data.targets[division]}
                 rapidActuals={data.rapidActuals[division]}
+                rapidCategories={data.rapidCategories}
                 daysElapsed={data.daysElapsed}
                 daysInMonth={data.daysInMonth}
                 workDaysElapsed={data.workDaysElapsed}
