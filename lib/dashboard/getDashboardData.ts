@@ -8,10 +8,16 @@ export type DivisionMetrics = {
   leads_mailing: number;
   invalid_leads_funded: number;
   arrivals_funded_organic: number;
+  arrivals_funded: number;
+  arrivals_organic: number;
   arrivals_mailing: number;
   closings_funded_organic: number;
+  closings_funded: number;
+  closings_organic: number;
   closings_mailing: number;
   revenue_funded_organic: number;
+  revenue_funded: number;
+  revenue_organic: number;
   revenue_mailing: number;
 };
 
@@ -21,10 +27,16 @@ const EMPTY_METRICS: DivisionMetrics = {
   leads_mailing: 0,
   invalid_leads_funded: 0,
   arrivals_funded_organic: 0,
+  arrivals_funded: 0,
+  arrivals_organic: 0,
   arrivals_mailing: 0,
   closings_funded_organic: 0,
+  closings_funded: 0,
+  closings_organic: 0,
   closings_mailing: 0,
   revenue_funded_organic: 0,
+  revenue_funded: 0,
+  revenue_organic: 0,
   revenue_mailing: 0,
 };
 

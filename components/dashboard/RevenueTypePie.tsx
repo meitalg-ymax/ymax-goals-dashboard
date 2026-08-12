@@ -23,6 +23,8 @@ export function RevenueTypePie({
   rapidCategories: RapidCategory[];
 }) {
   const fo = DIVISIONS.reduce((s, d) => s + divisions[d].revenue_funded_organic, 0);
+  const foFunded = DIVISIONS.reduce((s, d) => s + divisions[d].revenue_funded, 0);
+  const foOrganic = DIVISIONS.reduce((s, d) => s + divisions[d].revenue_organic, 0);
   const mailing = DIVISIONS.reduce((s, d) => s + divisions[d].revenue_mailing, 0);
   const spa = DIVISIONS.reduce(
     (s, d) => s + rapidCategories.filter((c) => c.division === d).reduce((a, c) => a + c.amount, 0),
@@ -72,11 +74,18 @@ export function RevenueTypePie({
           const value = values[s.key];
           const pct = total > 0 ? (value / total) * 100 : 0;
           return (
-            <div className="pie-legend-row" key={s.key}>
-              <span className="pie-dot" style={{ background: s.color }} />
-              <span className="pie-legend-label">{s.label}</span>
-              <span className="pie-legend-val">{formatCurrency(value)}</span>
-              <span className="pie-legend-pct">{pct.toFixed(1)}%</span>
+            <div key={s.key}>
+              <div className="pie-legend-row">
+                <span className="pie-dot" style={{ background: s.color }} />
+                <span className="pie-legend-label">{s.label}</span>
+                <span className="pie-legend-val">{formatCurrency(value)}</span>
+                <span className="pie-legend-pct">{pct.toFixed(1)}%</span>
+              </div>
+              {s.key === "fo" && (
+                <p className="note-text" style={{ margin: "2px 0 0 19px" }}>
+                  מתוך זה: {formatCurrency(foFunded)} ממומן · {formatCurrency(foOrganic)} אורגני
+                </p>
+              )}
             </div>
           );
         })}

@@ -207,12 +207,19 @@ export function DivisionRealCard({
             <FunnelShape leads={leadsFO} arrivals={arrivalsFO} closings={closingsFO} />
             <StageBlock title="לידים" result={leadsFOKadav} />
             <StageBlock title="הגעות" note={`(${pct(arrivalsFO, leadsFO)} מהלידים)`} result={arrivalsFOKadav} />
+            <p className="money-avg" style={{ margin: "-6px 0 0" }}>
+              מתוך זה: {formatNumber(metrics.arrivals_funded)} ממומן · {formatNumber(metrics.arrivals_organic)} אורגני
+            </p>
             <StageBlock title="סגירות" note={`(${pct(closingsFO, arrivalsFO)} מהמגיעות)`} result={closingsFOKadav} />
+            <p className="money-avg" style={{ margin: "-6px 0 0" }}>
+              מתוך זה: {formatNumber(metrics.closings_funded)} ממומן · {formatNumber(metrics.closings_organic)} אורגני
+            </p>
             <MoneyOutcome
               title="כסף"
               result={revenueFOKadav}
               avgDealActual={avgDealFOActual}
               avgDealTarget={targets.avg_deal_value_funded_organic ?? 0}
+              breakdown={`${formatCurrency(metrics.revenue_funded)} ממומן · ${formatCurrency(metrics.revenue_organic)} אורגני`}
             />
           </div>
           <div className="subfunnel-panel">

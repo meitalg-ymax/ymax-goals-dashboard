@@ -118,10 +118,18 @@ export function aggregateArrivals(rows: ArrivalRow[]): MetricRow[] {
   const out: MetricRow[] = [];
   for (const division of DIVISIONS) {
     const divisionRows = rows.filter((r) => classifyDivisionFromType(r.type) === division);
-    const mailing = divisionRows.filter((r) => isMailingSource(r.Lead_Source)).length;
-    const fundedOrganic = divisionRows.length - mailing;
-    out.push({ division, metric: "arrivals_funded_organic", value: fundedOrganic });
-    out.push({ division, metric: "arrivals_mailing", value: mailing });
+    const mailing = divisionRows.filter((r) => isMailingSource(r.Lead_Source));
+    const fundedOrganic = divisionRows.filter((r) => !isMailingSource(r.Lead_Source));
+    // Split funded/organic within the funded+organic cohort -- same
+    // classifyPaidOrganic rule used for leads, applied here to Lead_Source
+    // on the arrival record itself (available on every row already).
+    const funded = fundedOrganic.filter((r) => classifyPaidOrganic(r.Lead_Source) === "paid");
+    const organic = fundedOrganic.filter((r) => classifyPaidOrganic(r.Lead_Source) === "organic");
+
+    out.push({ division, metric: "arrivals_funded_organic", value: fundedOrganic.length });
+    out.push({ division, metric: "arrivals_funded", value: funded.length });
+    out.push({ division, metric: "arrivals_organic", value: organic.length });
+    out.push({ division, metric: "arrivals_mailing", value: mailing.length });
   }
   return out;
 }
@@ -132,12 +140,18 @@ export function aggregateClosingsAndRevenue(rows: ClosingRow[]): MetricRow[] {
     const divisionRows = rows.filter((r) => classifyDivisionFromType(r.type) === division);
     const mailingRows = divisionRows.filter((r) => isMailingSource(r.Lead_Source));
     const fundedOrganicRows = divisionRows.filter((r) => !isMailingSource(r.Lead_Source));
+    const fundedRows = fundedOrganicRows.filter((r) => classifyPaidOrganic(r.Lead_Source) === "paid");
+    const organicRows = fundedOrganicRows.filter((r) => classifyPaidOrganic(r.Lead_Source) === "organic");
 
     out.push({ division, metric: "closings_funded_organic", value: fundedOrganicRows.length });
+    out.push({ division, metric: "closings_funded", value: fundedRows.length });
+    out.push({ division, metric: "closings_organic", value: organicRows.length });
     out.push({ division, metric: "closings_mailing", value: mailingRows.length });
 
     const sum = (arr: ClosingRow[]) => arr.reduce((acc, r) => acc + (r.field1234567 ?? 0), 0);
     out.push({ division, metric: "revenue_funded_organic", value: sum(fundedOrganicRows) });
+    out.push({ division, metric: "revenue_funded", value: sum(fundedRows) });
+    out.push({ division, metric: "revenue_organic", value: sum(organicRows) });
     out.push({ division, metric: "revenue_mailing", value: sum(mailingRows) });
   }
   return out;

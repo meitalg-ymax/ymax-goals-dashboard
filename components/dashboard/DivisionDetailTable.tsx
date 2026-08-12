@@ -48,12 +48,15 @@ function SectionHeader({ label }: { label: string }) {
   );
 }
 
-function PlainRow({ label, value }: { label: string; value: number }) {
+function PlainRow({ label, value, isCurrency }: { label: string; value: number; isCurrency?: boolean }) {
+  const fmt = isCurrency ? formatCurrency : formatNumber;
   return (
     <div className="real-row" style={{ gridTemplateColumns: COLS }}>
-      <span className="rname">{label}</span>
+      <span className="rname" style={{ color: "var(--muted)", fontSize: 12.5 }}>
+        {label}
+      </span>
       <span>—</span>
-      <span>{formatNumber(value)}</span>
+      <span>{fmt(value)}</span>
       <span>—</span>
       <span>—</span>
     </div>
@@ -150,12 +153,16 @@ export function DivisionDetailTable({
         result={workday(metrics.arrivals_funded_organic, t("arrivals_funded_organic"))}
         bold
       />
+      <PlainRow label="↳ מתוך זה ממומן" value={metrics.arrivals_funded} />
+      <PlainRow label="↳ מתוך זה אורגני" value={metrics.arrivals_organic} />
       <RatioRow
         label="% המרה ליד→הגעה (ממומן+אורגני)"
         target={t("conversion_lead_arrival_funded_organic")}
         actual={convLeadArrivalFO}
       />
       <PacedRow label="סגירות ממומן+אורגני" result={workday(metrics.closings_funded_organic, t("closings_funded_organic"))} />
+      <PlainRow label="↳ מתוך זה ממומן" value={metrics.closings_funded} />
+      <PlainRow label="↳ מתוך זה אורגני" value={metrics.closings_organic} />
       <RatioRow
         label="% סגירה (ממומן+אורגני)"
         target={t("conversion_arrival_closing_funded_organic")}
@@ -166,6 +173,8 @@ export function DivisionDetailTable({
         result={workday(metrics.revenue_funded_organic, t("revenue_funded_organic"))}
         isCurrency
       />
+      <PlainRow label="↳ מתוך זה ממומן" value={metrics.revenue_funded} isCurrency />
+      <PlainRow label="↳ מתוך זה אורגני" value={metrics.revenue_organic} isCurrency />
       <RatioRow label="שווי עסקה ממוצע (ממומן+אורגני)" target={t("avg_deal_value_funded_organic")} actual={avgDealFO} isCurrency />
 
       <SectionHeader label="דיוור" />

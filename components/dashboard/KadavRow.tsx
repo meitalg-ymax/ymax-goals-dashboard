@@ -9,11 +9,13 @@ export function MoneyOutcome({
   result,
   avgDealActual,
   avgDealTarget,
+  breakdown,
 }: {
   title: string;
   result: KadavResult;
   avgDealActual: number;
   avgDealTarget: number;
+  breakdown?: string;
 }) {
   return (
     <div className="money-outcome">
@@ -22,6 +24,7 @@ export function MoneyOutcome({
         <span className="m-value">{formatCurrency(result.actual)}</span>
       </div>
       <KadavRow result={result} isCurrency />
+      {breakdown && <p className="money-avg">מתוך זה: {breakdown}</p>}
       {avgDealActual > 0 && (
         <p className="money-avg">
           שווי עסקה ממוצע: <strong>{formatCurrency(avgDealActual)}</strong>
