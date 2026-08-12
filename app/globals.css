@@ -1045,8 +1045,13 @@ a {
   padding: 7px 4px;
   text-align: center;
 }
+/* .extra-tile.total's own background is a surface-2->surface gradient, so
+   its mini-stats need a background that isn't either of those two colors --
+   otherwise part of the box blends invisibly into the gradient, the exact
+   bug already fixed once for .money-outcome .stat-box. */
 .extra-tile.total .mini-stat {
-  background: var(--surface-2);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
 }
 .mini-stat .ms-label {
   font-size: 9.5px;

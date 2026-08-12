@@ -90,6 +90,9 @@ export function DivisionRealCard({
   const budgetTarget = targets.budget_funded;
   const budgetActual = rapidActuals.budget_funded ?? 0;
   const hasBudgetTarget = Boolean(budgetTarget);
+  // Calendar-day pacing, same as budget_funded in DivisionDetailTable -- budget
+  // accrues every calendar day, not just workdays.
+  const budgetKadav = calcLeadsKadav(budgetActual, budgetTarget || undefined, daysElapsed, daysInMonth);
   const budgetUtilizationPct = hasBudgetTarget ? (budgetActual / budgetTarget) * 100 : null;
 
   const costPerLeadActual = metrics.leads_funded > 0 ? budgetActual / metrics.leads_funded : null;
@@ -137,6 +140,10 @@ export function DivisionRealCard({
               <div className="stat-box">
                 <span className="stat-label">נוצל בפועל</span>
                 <span className="stat-val">{formatCurrency(budgetActual)}</span>
+              </div>
+              <div className={`stat-box pct ${budgetKadav.status ?? ""}`}>
+                <span className="stat-label">קד״ב</span>
+                <span className="stat-val">{formatCurrency(budgetKadav.kadav)}</span>
               </div>
               <div
                 className={`stat-box pct ${
