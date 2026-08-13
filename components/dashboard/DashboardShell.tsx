@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { Tabbar, type TabDef } from "@/components/tabs/Tabbar";
 import { SignOutButton } from "@/components/SignOutButton";
 import { DivisionRealCard } from "@/components/dashboard/DivisionRealCard";
@@ -14,6 +13,11 @@ import { LeadsByDateTab } from "@/components/dashboard/LeadsByDateTab";
 import type { DashboardData } from "@/lib/dashboard/getDashboardData";
 import { DIVISIONS, type Division } from "@/lib/zoho/transform";
 
+const GROUPS: TabDef[] = [
+  { id: "kadav", label: "דוח קד״ב" },
+  { id: "leads", label: "מעקב לידים" },
+];
+
 const TABS: TabDef[] = [
   { id: "overview", label: "כללי" },
   { id: "ymax", label: "ymax" },
@@ -21,7 +25,6 @@ const TABS: TabDef[] = [
   { id: "tech", label: "tech" },
   { id: "mira_dry", label: "mira dry" },
   { id: "doctor", label: "doctor" },
-  { id: "leads-by-date", label: "לידים לפי תאריך" },
 ];
 
 const DIVISION_LABELS: Record<Division, string> = {
@@ -41,6 +44,7 @@ const DIVISION_SEGMENT: Record<Division, string> = {
 };
 
 export function DashboardShell({ data }: { data: DashboardData }) {
+  const [activeGroup, setActiveGroup] = useState("kadav");
   const [activeTab, setActiveTab] = useState("overview");
 
   return (
@@ -54,17 +58,11 @@ export function DashboardShell({ data }: { data: DashboardData }) {
           <h1>מעקב יעדים שבועי</h1>
         </div>
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-          <Link className="source-chip" href="/targets">
-            הזנת יעדים
-          </Link>
-          <Link className="source-chip" href="/rapid">
-            הזנת נתונים ידניים
-          </Link>
           <SignOutButton />
         </div>
       </header>
 
-      <Tabbar tabs={TABS} activeId={activeTab} onChange={setActiveTab} />
+      <Tabbar tabs={GROUPS} activeId={activeGroup} onChange={setActiveGroup} />
 
       {!data.hasSyncedData && (
         <div className="missing-card">
@@ -78,7 +76,9 @@ export function DashboardShell({ data }: { data: DashboardData }) {
         </div>
       )}
 
-      {activeTab === "overview" && (
+      {activeGroup === "kadav" && <Tabbar tabs={TABS} activeId={activeTab} onChange={setActiveTab} />}
+
+      {activeGroup === "kadav" && activeTab === "overview" && (
         <div className="tabpanel">
           <div className="pie-row">
             <div className="real-card">
@@ -109,43 +109,22 @@ export function DashboardShell({ data }: { data: DashboardData }) {
         </div>
       )}
 
-      {DIVISIONS.map(
-        (division) =>
-          activeTab === division && (
-            <div className="tabpanel" key={division}>
-              <div className="div-head">
-                <div className="name-row">
-                  <h2>{DIVISION_LABELS[division]}</h2>
-                </div>
-                <span className="segment">{DIVISION_SEGMENT[division]} — כל המקורות יחד</span>
-              </div>
-              <DivisionRealCard
-                division={division}
-                metrics={data.divisions[division]}
-                reasons={data.invalidReasons[division]}
-                asOf={data.asOf}
-                targets={data.targets[division]}
-                rapidActuals={data.rapidActuals[division]}
-                rapidCategories={data.rapidCategories}
-                daysElapsed={data.daysElapsed}
-                daysInMonth={data.daysInMonth}
-                workDaysElapsed={data.workDaysElapsed}
-                workDaysInMonth={data.workDaysInMonth}
-              />
-
-              <div className="real-card">
-                <div className="real-head">
-                  <div className="real-title">
-                    <h2>טבלה מפורטת — כמו באקסל</h2>
-                    <span className="real-badge">✓ נתון חי</span>
+      {activeGroup === "kadav" &&
+        DIVISIONS.map(
+          (division) =>
+            activeTab === division && (
+              <div className="tabpanel" key={division}>
+                <div className="div-head">
+                  <div className="name-row">
+                    <h2>{DIVISION_LABELS[division]}</h2>
                   </div>
-                  <Link className="source-chip" href={`/rapid?division=${division}`}>
-                    ✎ עדכון תקציב בפועל
-                  </Link>
+                  <span className="segment">{DIVISION_SEGMENT[division]} — כל המקורות יחד</span>
                 </div>
-                <DivisionDetailTable
+                <DivisionRealCard
                   division={division}
                   metrics={data.divisions[division]}
+                  reasons={data.invalidReasons[division]}
+                  asOf={data.asOf}
                   targets={data.targets[division]}
                   rapidActuals={data.rapidActuals[division]}
                   rapidCategories={data.rapidCategories}
@@ -154,18 +133,36 @@ export function DashboardShell({ data }: { data: DashboardData }) {
                   workDaysElapsed={data.workDaysElapsed}
                   workDaysInMonth={data.workDaysInMonth}
                 />
-                <p className="real-note">
-                  מתחשב הכל אוטומטית מ-Zoho וראפיד, חוץ מ<strong style={{ color: "var(--ink)" }}>תקציב ממומן בפועל</strong>{" "}
-                  שמוזן ידנית ב<Link href={`/rapid?division=${division}`}>&quot;הזנת נתונים ידניים&quot;</Link> (הקישור
-                  למעלה ✎). <strong style={{ color: "var(--ink)" }}>ירוקים (הפניות)</strong> מיובאים אוטומטית מדוח
-                  ראפיד, אך כלל-חברתי בלבד (לא מחולק לפי חטיבה) — ר&apos; מבט כללי.
-                </p>
-              </div>
-            </div>
-          )
-      )}
 
-      {activeTab === "leads-by-date" && <LeadsByDateTab />}
+                <div className="real-card">
+                  <div className="real-head">
+                    <div className="real-title">
+                      <h2>טבלה מפורטת — כמו באקסל</h2>
+                      <span className="real-badge">✓ נתון חי</span>
+                    </div>
+                  </div>
+                  <DivisionDetailTable
+                    division={division}
+                    metrics={data.divisions[division]}
+                    targets={data.targets[division]}
+                    rapidActuals={data.rapidActuals[division]}
+                    rapidCategories={data.rapidCategories}
+                    daysElapsed={data.daysElapsed}
+                    daysInMonth={data.daysInMonth}
+                    workDaysElapsed={data.workDaysElapsed}
+                    workDaysInMonth={data.workDaysInMonth}
+                  />
+                  <p className="real-note">
+                    מתחשב הכל אוטומטית מ-Zoho וראפיד, חוץ מ<strong style={{ color: "var(--ink)" }}>תקציב ממומן בפועל</strong>{" "}
+                    (מוזן ישירות). <strong style={{ color: "var(--ink)" }}>ירוקים (הפניות)</strong> מיובאים אוטומטית
+                    מדוח ראפיד, אך כלל-חברתי בלבד (לא מחולק לפי חטיבה) — ר&apos; מבט כללי.
+                  </p>
+                </div>
+              </div>
+            )
+        )}
+
+      {activeGroup === "leads" && <LeadsByDateTab />}
 
       <footer>YAFA MAXIMOV — מעקב יעדים</footer>
     </div>
