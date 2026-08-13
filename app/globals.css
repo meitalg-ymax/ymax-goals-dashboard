@@ -1445,17 +1445,22 @@ footer {
 
 .division-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 14px;
+  /* Narrow enough that all 5 divisions (6 with an unclassified bucket) fit
+     one row at the page's max-width instead of wrapping the last card alone
+     onto its own row -- long source names truncate with an ellipsis rather
+     than forcing extra width. */
+  grid-template-columns: repeat(auto-fit, minmax(185px, 1fr));
+  gap: 10px;
 }
 .division-card {
   background: var(--surface);
   border-radius: 18px;
   box-shadow: var(--shadow);
-  padding: 16px 18px;
+  padding: 14px 14px;
   display: flex;
   flex-direction: column;
   gap: 4px;
+  min-width: 0;
 }
 .division-head {
   display: flex;
