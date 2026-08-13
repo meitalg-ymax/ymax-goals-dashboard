@@ -1356,6 +1356,7 @@ footer {
 /* ---- לידים לפי תאריך tab ---- */
 .range-card {
   display: flex;
+  flex-direction: row;
   flex-wrap: wrap;
   align-items: flex-end;
   gap: 14px;
