@@ -1,6 +1,7 @@
 import { runCoqlAll } from "./coql";
 import { andAll } from "./coqlHelpers";
 import type { MonthRange } from "./dateRanges";
+import { customDateTimeRange } from "./dateRanges";
 
 // tech is a rollup of these `type` values (confirmed methodology). mira dry
 // used to roll up into tech too, but is now its own division (2026-08-11) --
@@ -45,13 +46,30 @@ const MAILING_SOURCE_EXCLUSIONS = ["דיוור - הזרקות", "ymax - דיוו
 // Lead_Source alone would resolve a division), and the known mailing-source
 // values are excluded up front. Division/paid-organic classification itself
 // still happens in transform.ts.
-export async function fetchLeadsForMonth(range: MonthRange): Promise<LeadRow[]> {
-  const query = `select id, Lead_Source, type from Leads where ${andAll([
-    `Created_Time >= '${range.monthStartDateTimeStr}'`,
-    `Created_Time <= '${range.yesterdayEndDateTimeStr}'`,
+function leadsBaseFilters(fromDateTimeStr: string, toDateTimeStr: string): string[] {
+  return [
+    `Created_Time >= '${fromDateTimeStr}'`,
+    `Created_Time <= '${toDateTimeStr}'`,
     `type is not null`,
     ...MAILING_SOURCE_EXCLUSIONS.map((s) => `Lead_Source not like '%${s}%'`),
-  ])}`;
+  ];
+}
+
+export async function fetchLeadsForMonth(range: MonthRange): Promise<LeadRow[]> {
+  const query = `select id, Lead_Source, type from Leads where ${andAll(
+    leadsBaseFilters(range.monthStartDateTimeStr, range.yesterdayEndDateTimeStr)
+  )}`;
+  return runCoqlAll(query) as Promise<LeadRow[]>;
+}
+
+// On-demand report (the "לידים לפי תאריך" tab) -- an arbitrary caller-picked
+// range, fetched live on request rather than from the daily zoho_metrics
+// sync. Same filters as fetchLeadsForMonth, just not capped at yesterday.
+export async function fetchLeadsForDateRange(fromDateStr: string, toDateStr: string): Promise<LeadRow[]> {
+  const { fromDateTimeStr, toDateTimeStr } = customDateTimeRange(fromDateStr, toDateStr);
+  const query = `select id, Lead_Source, type from Leads where ${andAll(
+    leadsBaseFilters(fromDateTimeStr, toDateTimeStr)
+  )}`;
   return runCoqlAll(query) as Promise<LeadRow[]>;
 }
 

@@ -10,6 +10,7 @@ import { OverviewKadavTable } from "@/components/dashboard/OverviewKadavTable";
 import { RevenueTypePie } from "@/components/dashboard/RevenueTypePie";
 import { RevenueByDivisionPie } from "@/components/dashboard/RevenueByDivisionPie";
 import { RapidCategoryBreakdown } from "@/components/dashboard/RapidCategoryBreakdown";
+import { LeadsByDateTab } from "@/components/dashboard/LeadsByDateTab";
 import type { DashboardData } from "@/lib/dashboard/getDashboardData";
 import { DIVISIONS, type Division } from "@/lib/zoho/transform";
 
@@ -20,6 +21,7 @@ const TABS: TabDef[] = [
   { id: "tech", label: "tech" },
   { id: "mira_dry", label: "mira dry" },
   { id: "doctor", label: "doctor" },
+  { id: "leads-by-date", label: "לידים לפי תאריך" },
 ];
 
 const DIVISION_LABELS: Record<Division, string> = {
@@ -162,6 +164,8 @@ export function DashboardShell({ data }: { data: DashboardData }) {
             </div>
           )
       )}
+
+      {activeTab === "leads-by-date" && <LeadsByDateTab />}
 
       <footer>YAFA MAXIMOV — מעקב יעדים</footer>
     </div>

@@ -41,6 +41,17 @@ export function currentMonthToYesterday(today: Date): MonthRange {
   };
 }
 
+// Arbitrary from/to range (both 'YYYY-MM-DD', inclusive) for on-demand
+// reports -- unlike currentMonthToYesterday this doesn't cap at yesterday,
+// since the caller picked an explicit range on purpose (e.g. checking a
+// future-dated test lead, or a range that's already fully in the past).
+export function customDateTimeRange(fromDateStr: string, toDateStr: string) {
+  return {
+    fromDateTimeStr: `${fromDateStr}T00:00:00${TZ_OFFSET}`,
+    toDateTimeStr: `${toDateStr}T23:59:59${TZ_OFFSET}`,
+  };
+}
+
 // Work-day calendar for קד"ב pacing: Sun-Thu = 1, Friday = 0.5, Saturday = 0.
 // Verified against the original tracking workbook's own day-counts for July 2026.
 export function workDaysBetween(start: Date, endInclusive: Date): number {
