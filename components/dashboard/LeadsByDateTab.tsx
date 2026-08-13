@@ -120,13 +120,15 @@ export function LeadsByDateTab() {
     <div className="tabpanel">
       <div className="real-card range-card">
         <div className="range-field">
-          <label>מתאריך</label>
+          <label>{singleDay ? "תאריך" : "מתאריך"}</label>
           <input type="date" value={from} onChange={(e) => handleFromChange(e.target.value)} />
         </div>
-        <div className="range-field">
-          <label>עד תאריך</label>
-          <input type="date" value={to} disabled={singleDay} onChange={(e) => setTo(e.target.value)} />
-        </div>
+        {!singleDay && (
+          <div className="range-field">
+            <label>עד תאריך</label>
+            <input type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+          </div>
+        )}
         <div className="range-toggle">
           <button className={!singleDay ? "active" : ""} onClick={() => handleSingleDayToggle(false)} type="button">
             טווח

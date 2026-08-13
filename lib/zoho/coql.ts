@@ -22,7 +22,14 @@ export async function runCoqlAll(baseQuery: string): Promise<Record<string, unkn
       body: JSON.stringify({ select_query: query }),
     });
 
-    const body = await res.json();
+    // Zoho sometimes returns a genuinely empty body (e.g. a 204, or a range
+    // with zero matching rows) instead of the documented {code: "NO_CONTENT"}
+    // JSON -- res.json() throws "Unexpected end of JSON input" on that, which
+    // otherwise surfaces as a confusing top-level error for a perfectly valid
+    // "no results" case (a future date range, an empty day, etc).
+    const text = await res.text();
+    if (!text) break;
+    const body = JSON.parse(text);
 
     if (!res.ok) {
       // Zoho returns {code: "NO_CONTENT", ...} or similar when the range has no rows left.
