@@ -822,6 +822,16 @@ a {
   font-size: 15px;
 }
 
+/* wraps the "כללי" funnel (FunnelShape + StageBlock*3 + MoneyOutcome) --
+   without this, those are bare block-level children with no gap between them
+   and visually run into each other (unlike .subfunnel-panel, which already
+   gaps the same shape of content). */
+.funnel-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
 /* clear labeled stat boxes — יעד / ביצוע / קד"ב / אחוז קד"ב */
 .stage-block {
   display: flex;

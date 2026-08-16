@@ -172,8 +172,8 @@ export function DivisionRealCard({
         <p className="note-text">תקציב בפועל אינו מסונכרן מ-Zoho, מוזן ישירות. מחיר לליד בפועל = תקציב בפועל ÷ לידים ממומן בפועל.</p>
       </div>
 
-      <div>
-        <p className="section-label" style={{ marginBottom: 10 }}>
+      <div className="funnel-stack">
+        <p className="section-label">
           המשפך הכללי — כל הערוצים ביחד
         </p>
         <FunnelShape leads={totalLeads} arrivals={totalArrivals} closings={totalClosings} />
