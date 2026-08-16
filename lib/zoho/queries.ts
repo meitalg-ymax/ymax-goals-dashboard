@@ -36,8 +36,18 @@ export type LeadRow = { id: string; Lead_Source?: string; type?: string };
 // there AND in fetchMailingLeadsForMonth (which finds the same leads by Tag,
 // not Created_Time, so the two queries can otherwise overlap). Confirmed
 // against Meital's own Zoho list-view filter (2026-08-12) -- match hers
-// exactly here, don't try to generalize to "contains דיוור".
-const MAILING_SOURCE_EXCLUSIONS = ["דיוור - הזרקות", "ymax - דיוור", "נאל", "דיוור וואצאפ", "דיוור - גוף"];
+// exactly here, don't try to generalize to "contains דיוור". "דיוור - ymax"
+// added 2026-08-16: found live in Zoho (6 leads that month, word order
+// reversed from the already-excluded "ymax - דיוור") slipping through
+// uncaught and inflating ymax's organic leads count.
+const MAILING_SOURCE_EXCLUSIONS = [
+  "דיוור - הזרקות",
+  "ymax - דיוור",
+  "דיוור - ymax",
+  "נאל",
+  "דיוור וואצאפ",
+  "דיוור - גוף",
+];
 
 // Leads created this month -- classified ממומן/אורגני/division by Lead_Source
 // text (NOT by `type`, per the standing rule). Two COQL-side filters added
