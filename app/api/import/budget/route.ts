@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
+import * as XLSX from "xlsx";
 import { createServiceClient } from "@/lib/supabase/service";
-import { parseBudgetSheet } from "@/lib/imports/budgetSheet";
+import { parseBudgetSheet, budgetSheetTabName } from "@/lib/imports/budgetSheet";
 
-// Backs the "עדכון תקציב שנוצל" button. Unlike the rapid-sales/referrals
-// buttons, this one needs no file upload -- Meital's budget tracker is a
-// Google Sheet shared "anyone with the link can view", so its CSV export
-// URL is fetchable directly (see BUDGET_SHEET_CSV_URL). One click re-pulls
-// whatever she's currently entered in the sheet.
+// Backs the "עדכון תקציב שנוצל" button. Meital's budget tracker is a Google
+// Sheet shared "anyone with the link can view", with one tab per month
+// ("אוגוסט 2026", etc.) -- fetches the WHOLE workbook (no per-tab gid) and
+// picks the current month's tab by name, so this keeps working next month
+// with zero code/env changes as long as she keeps making a new tab with the
+// same naming pattern.
 export const maxDuration = 30;
 
 function currentMonthStart(): string {
@@ -15,16 +17,27 @@ function currentMonthStart(): string {
 }
 
 export async function POST() {
-  const sheetUrl = process.env.BUDGET_SHEET_CSV_URL;
-  if (!sheetUrl) {
-    return NextResponse.json({ error: "BUDGET_SHEET_CSV_URL לא מוגדר בסביבה" }, { status: 500 });
+  const sheetId = process.env.BUDGET_SHEET_ID;
+  if (!sheetId) {
+    return NextResponse.json({ error: "BUDGET_SHEET_ID לא מוגדר בסביבה" }, { status: 500 });
   }
 
   try {
-    const res = await fetch(sheetUrl);
-    if (!res.ok) throw new Error(`Failed to fetch budget sheet: HTTP ${res.status}`);
-    const csvText = await res.text();
+    const workbookUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=xlsx`;
+    const res = await fetch(workbookUrl);
+    if (!res.ok) throw new Error(`Failed to fetch budget workbook: HTTP ${res.status}`);
+    const buffer = Buffer.from(await res.arrayBuffer());
+    const wb = XLSX.read(buffer, { type: "buffer" });
 
+    const tabName = budgetSheetTabName(new Date());
+    const ws = wb.Sheets[tabName];
+    if (!ws) {
+      throw new Error(
+        `לא נמצאה לשונית "${tabName}" בגיליון. לשוניות קיימות: ${wb.SheetNames.join(", ")}`
+      );
+    }
+
+    const csvText = XLSX.utils.sheet_to_csv(ws);
     const rows = parseBudgetSheet(csvText);
     const month = currentMonthStart();
 
@@ -41,7 +54,7 @@ export async function POST() {
     );
     if (error) throw new Error(`Failed to upsert budget_funded: ${error.message}`);
 
-    return NextResponse.json({ status: "ok", month, divisionsUpdated: rows.length, rows });
+    return NextResponse.json({ status: "ok", month, tabName, divisionsUpdated: rows.length, rows });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return NextResponse.json({ error: message }, { status: 500 });

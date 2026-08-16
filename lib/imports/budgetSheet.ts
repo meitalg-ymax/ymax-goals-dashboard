@@ -20,6 +20,31 @@ const DIVISION_LABELS: Record<string, Division> = {
   "מירה דריי": "mira_dry",
 };
 
+// The workbook has one tab per month, named "<Hebrew month> <YYYY>" (e.g.
+// "אוגוסט 2026") -- a 4-digit year, NOT the 2-digit "<month> <YY>" tag
+// convention used elsewhere for mailing-lead Tags (lib/zoho/queries.ts
+// hebrewMonthYearTag). Looking the tab up by name instead of a fixed gid
+// means this keeps working every month with no code/env change -- a new
+// month's tab just needs to exist with this same naming pattern.
+const HEBREW_MONTHS = [
+  "ינואר",
+  "פברואר",
+  "מרץ",
+  "אפריל",
+  "מאי",
+  "יוני",
+  "יולי",
+  "אוגוסט",
+  "ספטמבר",
+  "אוקטובר",
+  "נובמבר",
+  "דצמבר",
+];
+
+export function budgetSheetTabName(date: Date): string {
+  return `${HEBREW_MONTHS[date.getUTCMonth()]} ${date.getUTCFullYear()}`;
+}
+
 const HEADER_MARKER = "סוג";
 const TOTAL_MARKER_PREFIX = "סה";
 // ["סוג", "תקציב שהוגדר", "% ניצול תקציב", "ניצול תקציב", ...] -- 0-indexed.
