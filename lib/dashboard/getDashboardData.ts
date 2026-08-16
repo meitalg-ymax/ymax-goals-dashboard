@@ -182,6 +182,10 @@ export async function getDashboardData(): Promise<DashboardData> {
     }))
     .sort((a, b) => b.amount - a.amount);
 
+  const referralsTotal = rapidCategories
+    .filter((c) => c.division === null && c.category === REFERRALS_CATEGORY)
+    .reduce((s, c) => s + c.amount, 0);
+
   // ספה ושדרוגים actual -- NOT the raw Rapid category total for a division.
   // Rapid POS records EVERY payment collected (CRM-tracked deals, referral
   // clients, walk-in upsells alike), so the raw category total for e.g. ymax
@@ -191,18 +195,18 @@ export async function getDashboardData(): Promise<DashboardData> {
   // subtraction herself: "כסף ראפיד זה הסך הכל הכללי... צריך להוריד ממנו
   // ירוקים והכנסות של הזוהו... כדי לקבל ספה ושדרוגים"). The residual --
   // Rapid's total minus what Zoho already explains -- is the real ספה
-  // ושדרוגים figure. ירוקים (referrals) is NOT subtracted per division here
-  // (it has no division breakdown at all, see UnsplitRow) -- it's already
-  // mixed into whichever division's Rapid total received that payment, so
-  // it nets out naturally at the company-wide total without being added a
-  // second time (see OverviewKadavTable, RevenueTypePie, RevenueByDivisionPie
-  // -- none of them add referralsActualTotal on top of these division totals).
+  // ושדרוגים figure. ירוקים (referrals) has no division breakdown in Rapid
+  // itself, but Meital's own tracking attributes the ENTIRE company-wide
+  // referrals figure to ymax specifically (confirmed 2026-08-16, matching
+  // her live tracking sheet exactly) -- every other division's Rapid total
+  // has no referrals mixed in, so only ymax subtracts it.
   const spaUpgradesActual = Object.fromEntries(
     DIVISIONS.map((d) => {
       const rapidTotal = rapidCategories.filter((c) => c.division === d).reduce((s, c) => s + c.amount, 0);
       if (rapidTotal > 0) {
         const zohoRevenue = divisions[d].revenue_funded_organic + divisions[d].revenue_mailing;
-        return [d, rapidTotal - zohoRevenue];
+        const referralsDeduction = d === "ymax" ? referralsTotal : 0;
+        return [d, rapidTotal - zohoRevenue - referralsDeduction];
       }
       // No Rapid import yet for this division/month -- fall back to a
       // manually-entered ספה ושדרוגים actual (already assumed net, not a raw

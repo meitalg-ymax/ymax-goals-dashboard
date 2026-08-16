@@ -102,11 +102,13 @@ export function OverviewKadavTable({
   const productsActual = rapidCategories
     .filter((c) => c.division === null && c.category !== REFERRALS_CATEGORY)
     .reduce((sum, c) => sum + c.amount, 0);
-  // ירוקים -- shown for visibility only, NOT added into any total below:
-  // referral payments are already mixed into whichever division's Rapid
-  // category total received them, which spaUpgradesActual already accounts
-  // for (see getDashboardData.ts). Adding it again here would double-count
-  // real money (confirmed with Meital 2026-08-16).
+  // ירוקים -- ymax's own spaUpgradesActual already has this subtracted out
+  // (see getDashboardData.ts, confirmed with Meital 2026-08-16: ymax's own
+  // Rapid total needs referrals removed to avoid double-counting against
+  // its own tracked revenue), so it's no longer embedded in any division's
+  // total above -- it must be added back here explicitly, the same way
+  // productsActual is, or this real money would silently disappear from the
+  // company grand total.
   const referralsActualTotal = rapidCategories
     .filter((c) => c.division === null && c.category === REFERRALS_CATEGORY)
     .reduce((sum, c) => sum + c.amount, 0);
@@ -161,10 +163,12 @@ export function OverviewKadavTable({
   const productsTarget = companyTargets.revenue_products ?? 0;
 
   // Products (division=null) are genuinely separate money, not embedded in
-  // any division's Rapid total -- added normally. Referrals are NOT added
-  // here (see referralsActualTotal comment above) -- shown below only as an
-  // informational line, not summed into the grand total.
-  grandMoneyActual += productsActual;
+  // any division's Rapid total -- added normally. Referrals used to be
+  // skipped here (already embedded in a division's total, don't double-add)
+  // -- but ymax's spaUpgradesActual now has referrals subtracted out (see
+  // getDashboardData.ts), so that money needs to be added back here or it
+  // silently disappears from the company grand total.
+  grandMoneyActual += productsActual + referralsActualTotal;
   grandMoneyTarget += referralsTargetTotal + productsTarget;
 
   const referralsKadav = calcWorkdayKadav(
@@ -190,7 +194,7 @@ export function OverviewKadavTable({
           <HeroTile label="סה״כ לידים" result={grandLeadsKadav} />
           <HeroTile label="סה״כ הגעות" result={grandArrivalsKadav} />
           <HeroTile label="סה״כ סגירות" result={grandClosingsKadav} />
-          <HeroTile label="סה״כ כסף (כולל מוצרים; ירוקים כבר בתוך החטיבות)" result={grandMoneyKadav} isCurrency total />
+          <HeroTile label="סה״כ כסף (כולל מוצרים וירוקים)" result={grandMoneyKadav} isCurrency total />
         </div>
       </div>
 
@@ -221,7 +225,7 @@ export function OverviewKadavTable({
               <span className="ov-card-name">מוצרים וירוקים — כלל החברה</span>
             </div>
             <MetricBar label="מכירת מוצרים (כללי)" result={productsKadav} isCurrency />
-            <MetricBar label="ירוקים (הפניות) — לא בתוך הסה״כ, ר׳ הערה" result={referralsKadav} isCurrency />
+            <MetricBar label="ירוקים (הפניות)" result={referralsKadav} isCurrency />
           </div>
         </div>
       </div>
@@ -229,12 +233,11 @@ export function OverviewKadavTable({
       <p className="real-note">
         <strong style={{ color: "var(--ink)" }}>סה״כ כסף</strong> (לפי חטיבה) = הכנסות CRM (ממומן+אורגני+דיוור) + ספה
         ושדרוגים בפועל, כאשר ספה ושדרוגים = הסה״כ שדיווח ראפיד לחטיבה הזו <em>פחות</em> ההכנסות מ-CRM — כי ראפיד
-        רושם כל תשלום שהתקבל בקליניקה, כולל תשלומים שכבר נספרו בנפרד ב-Zoho, ולא צריך לספור אותם פעמיים.{" "}
-        <strong style={{ color: "var(--ink)" }}>ירוקים (הפניות)</strong> מוצג כאן רק לצורך מעקב אחר יעד ההפניות — הכסף
-        עצמו כבר נכלל בתוך אחת מהחטיבות למעלה (תשלום של לקוח שהגיע בהפניה עדיין מוקלד בראפיד תחת החטיבה שלו), ולכן
-        לא מתווסף שוב לסה״כ הכללי. <strong style={{ color: "var(--ink)" }}>מוצרים</strong> הן מכירות מוצרים כלליות
-        שלא משויכות לחטיבה ספציפית (ולכן לא נכללות בשום ספה ושדרוגים של חטיבה) — יש להן יעד כלל-חברתי משלהן (מוזן
-        ב&quot;הזנת יעדים&quot;).
+        רושם כל תשלום שהתקבל בקליניקה, כולל תשלומים שכבר נספרו בנפרד ב-Zoho, ולא צריך לספור אותם פעמיים. עבור ymax
+        ספציפית מורידים גם את <strong style={{ color: "var(--ink)" }}>ירוקים (הפניות)</strong> מהסה״כ של ראפיד, מאותה
+        סיבה — לקוח שהגיע בהפניה עדיין מוקלד בראפיד תחת ymax. <strong style={{ color: "var(--ink)" }}>ירוקים</strong>{" "}
+        עצמו מתווסף בנפרד בסה״כ הכללי למטה (בדיוק כמו <strong style={{ color: "var(--ink)" }}>מוצרים</strong>), כך
+        שהכסף לא נעלם, רק מוצג כשורה נפרדת במקום להיחשב בטעות כחלק מהביצוע של ymax.
       </p>
     </>
   );

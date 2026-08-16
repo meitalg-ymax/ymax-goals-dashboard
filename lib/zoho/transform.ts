@@ -55,6 +55,11 @@ export function classifyDivisionFromType(type: string | undefined): Division | n
   const t = (type ?? "").toLowerCase().trim();
   if (t === "mira dry") return "mira_dry";
   if (TECH_TYPE_VALUES.includes(t)) return "tech";
+  // "body tech" is a malformed picklist value that shows up in real Zoho data
+  // (confirmed 2026-08-16, 20 leads since June) -- should be a single clean
+  // value, but until it's fixed at the source, map it to tech so these leads
+  // aren't silently dropped from every division's numbers.
+  if (t === "body tech") return "tech";
   if (t === "ymax") return "ymax";
   if (t === "body") return "body";
   if (t === "doctor") return "doctor";

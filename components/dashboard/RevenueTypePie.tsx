@@ -5,18 +5,19 @@ import { formatCurrency } from "@/lib/metrics/format";
 const REFERRALS_CATEGORY = "ירוקים (הפניות)";
 
 // Fixed categorical order + colors, validated for CVD separation
-// (scripts/validate_palette.js "#5e4a8a,#c9548c,#c9a55c,#3468a8" --mode light -> all pass).
+// (scripts/validate_palette.js "#5e4a8a,#c9548c,#c9a55c,#3468a8,#3f9e6d" --mode light -> all pass).
 // Never reuse status colors (good/warn/critical) here -- this is identity, not state.
-// ירוקים (referrals) is intentionally NOT a slice -- that money is already
-// mixed into whichever division's Rapid category (and so, into the ספה
-// ושדרוגים slice below) received the payment; giving it its own slice would
-// double-count it (confirmed with Meital 2026-08-16). Shown as a footnote
-// instead.
+// ירוקים (referrals) IS its own slice (added back 2026-08-16) -- ymax's own
+// spaUpgradesActual now has referrals subtracted out (see getDashboardData.ts,
+// confirmed with Meital), so referrals is no longer mixed into the ospa
+// ושדרוגים slice below -- it's genuinely separate money now, same treatment
+// as "מוצרים".
 const SLICES = [
   { key: "fo", label: "ממומן + אורגני", color: "#5e4a8a" },
   { key: "mailing", label: "דיוור", color: "#c9548c" },
   { key: "spa", label: "ספה ושדרוגים", color: "#c9a55c" },
   { key: "products", label: "מוצרים", color: "#3468a8" },
+  { key: "referrals", label: "ירוקים (הפניות)", color: "#3f9e6d" },
 ] as const;
 
 export function RevenueTypePie({
@@ -43,8 +44,8 @@ export function RevenueTypePie({
     .filter((c) => c.division === null && c.category !== REFERRALS_CATEGORY)
     .reduce((s, c) => s + c.amount, 0);
 
-  const values: Record<(typeof SLICES)[number]["key"], number> = { fo, mailing, spa, products };
-  const total = fo + mailing + spa + products;
+  const values: Record<(typeof SLICES)[number]["key"], number> = { fo, mailing, spa, products, referrals };
+  const total = fo + mailing + spa + products + referrals;
 
   if (total <= 0) {
     return (
@@ -95,12 +96,6 @@ export function RevenueTypePie({
             </div>
           );
         })}
-        {referrals > 0 && (
-          <p className="note-text" style={{ margin: "4px 0 0" }}>
-            מתוך זה, {formatCurrency(referrals)} הגיעו דרך תוכנית ההפניות (ירוקים) — כבר נכלל ב&quot;ספה ושדרוגים&quot;
-            למעלה, לא בנוסף.
-          </p>
-        )}
       </div>
     </div>
   );
