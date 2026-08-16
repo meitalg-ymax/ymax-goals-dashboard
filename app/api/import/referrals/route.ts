@@ -3,34 +3,31 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { parseReferralsReport, applyReferralsImport } from "@/lib/imports/rapidReferrals";
 
 // Backs the "עדכון ירוקים" upload button -- protected by proxy.ts (cookie
-// session), same as every other non-/api/sync route. Runs the exact same
-// parsing/write logic as scripts/import-rapid-referrals.mjs, just from an
-// uploaded file instead of a local path.
+// session), same as every other non-/api/sync route. Always writes to the
+// current month: the report is a rolling snapshot summed in full (see
+// lib/imports/rapidReferrals.ts), not something that needs a target month
+// to filter rows by.
 export const maxDuration = 60;
 
-function currentYearMonth(): string {
+function currentMonthStart(): string {
   const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}-01`;
 }
 
 export async function POST(request: Request) {
   const formData = await request.formData();
   const file = formData.get("file");
-  const targetMonth = (formData.get("month") as string | null) || currentYearMonth();
 
   if (!(file instanceof File)) {
     return NextResponse.json({ error: "לא צורף קובץ" }, { status: 400 });
   }
-  if (!/^\d{4}-\d{2}$/.test(targetMonth)) {
-    return NextResponse.json({ error: "פורמט חודש לא תקין (צפוי YYYY-MM)" }, { status: 400 });
-  }
 
   try {
     const buffer = Buffer.from(await file.arrayBuffer());
-    const parsed = parseReferralsReport(buffer, targetMonth);
+    const parsed = parseReferralsReport(buffer);
 
     const supabase = createServiceClient();
-    const result = await applyReferralsImport(supabase, parsed);
+    const result = await applyReferralsImport(supabase, currentMonthStart(), parsed);
 
     return NextResponse.json({
       status: "ok",
@@ -38,7 +35,7 @@ export async function POST(request: Request) {
       amount: result.amount,
       totalRows: parsed.totalRows,
       includedCount: parsed.includedCount,
-      excluded: parsed.excluded,
+      excludedNotClosed: parsed.excludedNotClosed,
       amountSource: parsed.amountSource,
     });
   } catch (err) {
