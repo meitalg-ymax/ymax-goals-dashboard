@@ -10,6 +10,7 @@ import { RevenueTypePie } from "@/components/dashboard/RevenueTypePie";
 import { RevenueByDivisionPie } from "@/components/dashboard/RevenueByDivisionPie";
 import { RapidCategoryBreakdown } from "@/components/dashboard/RapidCategoryBreakdown";
 import { LeadsByDateTab } from "@/components/dashboard/LeadsByDateTab";
+import { DataOpsBar } from "@/components/dashboard/DataOpsBar";
 import type { DashboardData } from "@/lib/dashboard/getDashboardData";
 import { DIVISIONS, type Division } from "@/lib/zoho/transform";
 
@@ -61,6 +62,8 @@ export function DashboardShell({ data }: { data: DashboardData }) {
           <SignOutButton />
         </div>
       </header>
+
+      <DataOpsBar lastUpdated={data.lastUpdated} />
 
       <Tabbar tabs={GROUPS} activeId={activeGroup} onChange={setActiveGroup} />
 

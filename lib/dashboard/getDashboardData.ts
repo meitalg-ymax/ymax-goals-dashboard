@@ -44,6 +44,13 @@ export type InvalidReason = { reason: string; count: number };
 
 export type RapidCategory = { category: string; division: Division | null; amount: number };
 
+export type LastUpdated = {
+  rapidSales: string | null;
+  referrals: string | null;
+  budget: string | null;
+  zohoSync: string | null;
+};
+
 export type DashboardData = {
   hasSyncedData: boolean;
   asOf: string | null;
@@ -54,11 +61,14 @@ export type DashboardData = {
   rapidActuals: Record<Division, Record<string, number>>;
   rapidCategories: RapidCategory[];
   companyTargets: Record<string, number>;
+  lastUpdated: LastUpdated;
   daysElapsed: number;
   daysInMonth: number;
   workDaysElapsed: number;
   workDaysInMonth: number;
 };
+
+const REFERRALS_CATEGORY = "ירוקים (הפניות)";
 
 const MONTH_NAMES_HE = [
   "ינואר",
@@ -87,13 +97,24 @@ export async function getDashboardData(): Promise<DashboardData> {
     { data: rapidRows },
     { data: categoryRows },
     { data: companyTargetRows },
+    { data: syncRunRows },
   ] = await Promise.all([
     supabase.from("zoho_metrics").select("division, metric, value, as_of").eq("month", monthStart),
     supabase.from("zoho_invalid_lead_reasons").select("division, reason, count").eq("month", monthStart),
     supabase.from("manual_entries").select("division, metric, value").eq("kind", "target").eq("month", monthStart),
-    supabase.from("manual_entries").select("division, metric, value").eq("kind", "rapid_actual").eq("month", monthStart),
-    supabase.from("rapid_sales_categories").select("category, division, amount").eq("month", monthStart),
+    supabase
+      .from("manual_entries")
+      .select("division, metric, value, updated_at")
+      .eq("kind", "rapid_actual")
+      .eq("month", monthStart),
+    supabase.from("rapid_sales_categories").select("category, division, amount, synced_at").eq("month", monthStart),
     supabase.from("company_targets").select("metric, value").eq("month", monthStart),
+    supabase
+      .from("sync_runs")
+      .select("finished_at")
+      .eq("status", "success")
+      .order("finished_at", { ascending: false })
+      .limit(1),
   ]);
 
   const divisions = Object.fromEntries(
@@ -160,6 +181,18 @@ export async function getDashboardData(): Promise<DashboardData> {
     }))
     .sort((a, b) => b.amount - a.amount);
 
+  const maxTimestamp = (timestamps: (string | null | undefined)[]): string | null =>
+    timestamps.filter((t): t is string => Boolean(t)).sort().at(-1) ?? null;
+
+  const lastUpdated: LastUpdated = {
+    rapidSales: maxTimestamp(
+      (categoryRows ?? []).filter((r) => r.category !== REFERRALS_CATEGORY).map((r) => r.synced_at)
+    ),
+    referrals: maxTimestamp((categoryRows ?? []).filter((r) => r.category === REFERRALS_CATEGORY).map((r) => r.synced_at)),
+    budget: maxTimestamp((rapidRows ?? []).filter((r) => r.metric === "budget_funded").map((r) => r.updated_at)),
+    zohoSync: syncRunRows?.[0]?.finished_at ?? null,
+  };
+
   return {
     hasSyncedData: (metricRows?.length ?? 0) > 0,
     asOf,
@@ -170,6 +203,7 @@ export async function getDashboardData(): Promise<DashboardData> {
     rapidActuals,
     rapidCategories,
     companyTargets,
+    lastUpdated,
     daysElapsed,
     daysInMonth,
     workDaysElapsed,
