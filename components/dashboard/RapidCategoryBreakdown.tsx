@@ -10,8 +10,20 @@ const DIVISION_LABELS: Record<Division, string> = {
   doctor: "doctor",
 };
 
+// ירוקים comes from a completely different report (Treatment Plans, the
+// referrals coordinator's export) than everything else here (the Rapid POS
+// SalesReport) -- folding it into this table's own סה"כ made that total not
+// match the SalesReport Excel Meital checks it against (confirmed
+// 2026-08-16: her Excel column-sum was ₪1,538,007, this table showed
+// ₪1,653,167 -- exactly ₪115,160 higher, which is precisely the ירוקים
+// figure). Kept out of this table/total entirely, shown as its own callout.
+const REFERRALS_CATEGORY = "ירוקים (הפניות)";
+
 export function RapidCategoryBreakdown({ categories }: { categories: RapidCategory[] }) {
-  if (categories.length === 0) {
+  const posCategories = categories.filter((c) => c.category !== REFERRALS_CATEGORY);
+  const referralsAmount = categories.find((c) => c.category === REFERRALS_CATEGORY)?.amount ?? 0;
+
+  if (posCategories.length === 0) {
     return (
       <div className="missing-card">
         <div className="mc-text">
@@ -23,22 +35,20 @@ export function RapidCategoryBreakdown({ categories }: { categories: RapidCatego
     );
   }
 
-  const total = categories.reduce((sum, c) => sum + c.amount, 0);
+  const total = posCategories.reduce((sum, c) => sum + c.amount, 0);
 
   // Group the raw report categories by division -- several categories can
   // belong to the same division (e.g. "YMAX PRO הסרת שיער" + "YMAX הסרת שיער
   // פנים" are both ymax) and should show as one combined line, not one row
-  // per raw category. Unassigned (division=null) categories are different
-  // revenue streams that happen to share "no division" (general products,
-  // referrals) -- they stay as separate rows rather than merging into one
-  // generic "products" bucket.
+  // per raw category. "מוצרים יפה" (division=null) is a general product-sales
+  // category from the SAME SalesReport, so it stays here as its own row.
   const divisionGroups = DIVISIONS.map((division) => {
-    const rows = categories.filter((c) => c.division === division);
+    const rows = posCategories.filter((c) => c.division === division);
     const amount = rows.reduce((sum, c) => sum + c.amount, 0);
     return { key: division as string, label: DIVISION_LABELS[division], rows, amount };
   }).filter((g) => g.rows.length > 0);
 
-  const unassignedGroups = categories
+  const unassignedGroups = posCategories
     .filter((c) => c.division === null)
     .map((c) => ({ key: c.category, label: c.category, rows: [c], amount: c.amount }));
 
@@ -73,9 +83,20 @@ export function RapidCategoryBreakdown({ categories }: { categories: RapidCatego
         </div>
       </div>
       <p className="note-text">
-        מקור: דוח מכירות מראפיד (POS) לחטיבות, מקובץ לפי חטיבה. &quot;מוצרים יפה&quot; ו&quot;ירוקים (הפניות)&quot;
-        הן קטגוריות כלל-חברתיות שלא ניתן לשייך לחטיבה ספציפית (דוח ראפיד לא כולל עמודת חטיבה עבורן).
+        מקור: דוח מכירות מראפיד (POS), מקובץ לפי חטיבה. &quot;מוצרים יפה&quot; היא קטגוריה כלל-חברתית שלא ניתן
+        לשייך לחטיבה ספציפית (הדוח לא כולל עמודת חטיבה עבורה).
       </p>
+      {referralsAmount > 0 && (
+        <div className="real-row" style={{ gridTemplateColumns: "1fr 100px", marginTop: 10 }}>
+          <span>
+            <span className="rname">ירוקים (הפניות)</span>
+            <span style={{ display: "block", fontSize: 11, color: "var(--muted)", marginTop: 2 }}>
+              ממקור נפרד (דוח Treatment Plans) — לא חלק מדוח המכירות של ראפיד, ולכן לא ב-סה״כ שלמעלה
+            </span>
+          </span>
+          <span>{formatCurrency(referralsAmount)}</span>
+        </div>
+      )}
     </div>
   );
 }
