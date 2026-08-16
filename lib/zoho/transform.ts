@@ -44,7 +44,17 @@ function divisionFromSourceText(source: string | undefined): Division | null {
 // case it's the only signal available, so it's used as a fallback whenever
 // source text doesn't resolve a division.
 export function classifyDivisionFromSource(source: string | undefined, type?: string): Division | null {
-  return divisionFromSourceText(source) ?? classifyDivisionFromType(type);
+  const bySource = divisionFromSourceText(source);
+  if (bySource) return bySource;
+  // The "body tech" malformed type value maps to tech for every other metric
+  // (arrivals/closings/revenue/invalid leads -- confirmed 2026-08-16), but NOT
+  // as a leads-count fallback: reconciling against Meital's own tracking sheet
+  // showed these generic-source (WEBSITE, "שיחה נכנסת") leads are excluded
+  // from her leads total entirely, not attributed to tech. Only the type
+  // fallback for THIS malformed value is skipped -- clean type values still
+  // fall through to classifyDivisionFromType normally.
+  if ((type ?? "").toLowerCase().trim() === "body tech") return null;
+  return classifyDivisionFromType(type);
 }
 
 // Division from the `type` field -- used for every metric EXCEPT the leads
