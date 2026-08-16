@@ -68,6 +68,40 @@ function UploadButton({
   );
 }
 
+function ActionButton({
+  label,
+  busyLabel,
+  endpoint,
+  busy,
+  onStart,
+  onDone,
+}: {
+  label: string;
+  busyLabel: string;
+  endpoint: string;
+  busy: boolean;
+  onStart: () => void;
+  onDone: (result: { ok: boolean; text: string }) => void;
+}) {
+  async function handleClick() {
+    onStart();
+    try {
+      const res = await fetch(endpoint, { method: "POST" });
+      const body = await res.json();
+      if (!res.ok || body.status === "error") throw new Error(body.error ?? "שגיאה לא ידועה");
+      onDone({ ok: true, text: `${label}: עודכן בהצלחה` });
+    } catch (err) {
+      onDone({ ok: false, text: `${label}: ${err instanceof Error ? err.message : String(err)}` });
+    }
+  }
+
+  return (
+    <button type="button" className="source-chip" disabled={busy} onClick={handleClick}>
+      {busy ? busyLabel : label}
+    </button>
+  );
+}
+
 export function DataOpsBar({ lastUpdated }: { lastUpdated: LastUpdated }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -79,31 +113,27 @@ export function DataOpsBar({ lastUpdated }: { lastUpdated: LastUpdated }) {
     if (result.ok) router.refresh();
   }
 
-  async function handleZohoRefresh() {
-    setBusy(true);
-    setMessage(null);
-    try {
-      const res = await fetch("/api/zoho-refresh", { method: "POST" });
-      const body = await res.json();
-      if (!res.ok || body.status === "error") throw new Error(body.error ?? "שגיאה לא ידועה");
-      setMessage({ ok: true, text: "Zoho: הסנכרון הצליח" });
-      router.refresh();
-    } catch (err) {
-      setMessage({ ok: false, text: `Zoho: ${err instanceof Error ? err.message : String(err)}` });
-    } finally {
-      setBusy(false);
-    }
-  }
-
   return (
     <div className="data-ops-bar">
       <div className="data-ops-buttons">
         <UploadButton label="עדכון כסף ראפיד" endpoint="/api/import/rapid-sales" busy={busy} onStart={() => setBusy(true)} onDone={handleDone} />
         <UploadButton label="עדכון ירוקים" endpoint="/api/import/referrals" busy={busy} onStart={() => setBusy(true)} onDone={handleDone} />
-        <UploadButton label="עדכון תקציב שנוצל" endpoint="/api/import/budget" busy={busy} onStart={() => setBusy(true)} onDone={handleDone} />
-        <button type="button" className="source-chip" disabled={busy} onClick={handleZohoRefresh}>
-          {busy ? "מעדכן..." : "🔄 רענון נתונים מ-Zoho"}
-        </button>
+        <ActionButton
+          label="💰 עדכון תקציב שנוצל"
+          busyLabel="מעדכן..."
+          endpoint="/api/import/budget"
+          busy={busy}
+          onStart={() => setBusy(true)}
+          onDone={handleDone}
+        />
+        <ActionButton
+          label="🔄 רענון נתונים מ-Zoho"
+          busyLabel="מעדכן..."
+          endpoint="/api/zoho-refresh"
+          busy={busy}
+          onStart={() => setBusy(true)}
+          onDone={handleDone}
+        />
       </div>
       <div className="data-ops-status">
         <span>כסף ראפיד: {formatWhen(lastUpdated.rapidSales)}</span>
