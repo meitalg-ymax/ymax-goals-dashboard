@@ -88,13 +88,17 @@ export function DashboardShell({ data }: { data: DashboardData }) {
               <p className="section-label" style={{ margin: "0 0 4px" }}>
                 הכנסה לפי חטיבה
               </p>
-              <RevenueByDivisionPie divisions={data.divisions} rapidCategories={data.rapidCategories} />
+              <RevenueByDivisionPie divisions={data.divisions} spaUpgradesActual={data.spaUpgradesActual} />
             </div>
             <div className="real-card">
               <p className="section-label" style={{ margin: "0 0 4px" }}>
                 הכנסה לפי סוג
               </p>
-              <RevenueTypePie divisions={data.divisions} rapidCategories={data.rapidCategories} />
+              <RevenueTypePie
+                divisions={data.divisions}
+                rapidCategories={data.rapidCategories}
+                spaUpgradesActual={data.spaUpgradesActual}
+              />
             </div>
           </div>
 
@@ -102,6 +106,7 @@ export function DashboardShell({ data }: { data: DashboardData }) {
             divisions={data.divisions}
             targets={data.targets}
             rapidCategories={data.rapidCategories}
+            spaUpgradesActual={data.spaUpgradesActual}
             companyTargets={data.companyTargets}
             daysElapsed={data.daysElapsed}
             daysInMonth={data.daysInMonth}
@@ -124,13 +129,12 @@ export function DashboardShell({ data }: { data: DashboardData }) {
                   <span className="segment">{DIVISION_SEGMENT[division]} — כל המקורות יחד</span>
                 </div>
                 <DivisionRealCard
-                  division={division}
                   metrics={data.divisions[division]}
                   reasons={data.invalidReasons[division]}
                   asOf={data.asOf}
                   targets={data.targets[division]}
                   rapidActuals={data.rapidActuals[division]}
-                  rapidCategories={data.rapidCategories}
+                  spaUpgradesActual={data.spaUpgradesActual[division]}
                   daysElapsed={data.daysElapsed}
                   daysInMonth={data.daysInMonth}
                   workDaysElapsed={data.workDaysElapsed}
@@ -145,11 +149,10 @@ export function DashboardShell({ data }: { data: DashboardData }) {
                     </div>
                   </div>
                   <DivisionDetailTable
-                    division={division}
                     metrics={data.divisions[division]}
                     targets={data.targets[division]}
                     rapidActuals={data.rapidActuals[division]}
-                    rapidCategories={data.rapidCategories}
+                    spaUpgradesActual={data.spaUpgradesActual[division]}
                     daysElapsed={data.daysElapsed}
                     daysInMonth={data.daysInMonth}
                     workDaysElapsed={data.workDaysElapsed}

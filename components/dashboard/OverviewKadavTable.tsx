@@ -77,6 +77,7 @@ export function OverviewKadavTable({
   divisions,
   targets,
   rapidCategories,
+  spaUpgradesActual,
   companyTargets,
   daysElapsed,
   daysInMonth,
@@ -86,6 +87,7 @@ export function OverviewKadavTable({
   divisions: Record<Division, DivisionMetrics>;
   targets: Record<Division, Record<string, number>>;
   rapidCategories: RapidCategory[];
+  spaUpgradesActual: Record<Division, number>;
   companyTargets: Record<string, number>;
   daysElapsed: number;
   daysInMonth: number;
@@ -94,15 +96,17 @@ export function OverviewKadavTable({
 }) {
   const REFERRALS_CATEGORY = "ירוקים (הפניות)";
 
-  const rapidByDivision = (d: Division) =>
-    rapidCategories.filter((c) => c.division === d).reduce((sum, c) => sum + c.amount, 0);
-
   // Unassigned (division=null) rapid categories cover two distinct
   // company-wide streams -- general product sales and referrals -- kept
   // separate rather than lumped into one "products" total.
   const productsActual = rapidCategories
     .filter((c) => c.division === null && c.category !== REFERRALS_CATEGORY)
     .reduce((sum, c) => sum + c.amount, 0);
+  // ירוקים -- shown for visibility only, NOT added into any total below:
+  // referral payments are already mixed into whichever division's Rapid
+  // category total received them, which spaUpgradesActual already accounts
+  // for (see getDashboardData.ts). Adding it again here would double-count
+  // real money (confirmed with Meital 2026-08-16).
   const referralsActualTotal = rapidCategories
     .filter((c) => c.division === null && c.category === REFERRALS_CATEGORY)
     .reduce((sum, c) => sum + c.amount, 0);
@@ -133,12 +137,11 @@ export function OverviewKadavTable({
     const closingsTarget = (t.closings_funded_organic ?? 0) + (t.closings_mailing ?? 0);
     const closingsKadav = calcWorkdayKadav(closingsActual, closingsTarget || undefined, workDaysElapsed, workDaysInMonth);
 
-    // "סה"כ כסף" -- the real reconciliation total, from Rapid (all money that
-    // actually landed, CRM-tracked or not), not just Zoho CRM revenue.
-    // Referrals are excluded here -- the source report has no division
-    // column, so actual referral revenue can't be attributed to any one
-    // division (see the dedicated "ירוקים" line below instead).
-    const moneyActual = m.revenue_funded_organic + m.revenue_mailing + rapidByDivision(d);
+    // "סה"כ כסף" -- CRM revenue + this division's ספה ושדרוגים actual, which
+    // is already Rapid's category total for this division MINUS the same
+    // CRM revenue (see getDashboardData.ts) -- so this correctly resolves to
+    // Rapid's real total for the division, not a double-counted sum of both.
+    const moneyActual = m.revenue_funded_organic + m.revenue_mailing + spaUpgradesActual[d];
     const moneyTarget = (t.revenue_funded_organic ?? 0) + (t.revenue_mailing ?? 0) + (t.revenue_spa_upgrades ?? 0);
     const moneyKadav = calcWorkdayKadav(moneyActual, moneyTarget || undefined, workDaysElapsed, workDaysInMonth);
 
@@ -157,7 +160,11 @@ export function OverviewKadavTable({
 
   const productsTarget = companyTargets.revenue_products ?? 0;
 
-  grandMoneyActual += productsActual + referralsActualTotal;
+  // Products (division=null) are genuinely separate money, not embedded in
+  // any division's Rapid total -- added normally. Referrals are NOT added
+  // here (see referralsActualTotal comment above) -- shown below only as an
+  // informational line, not summed into the grand total.
+  grandMoneyActual += productsActual;
   grandMoneyTarget += referralsTargetTotal + productsTarget;
 
   const referralsKadav = calcWorkdayKadav(
@@ -183,7 +190,7 @@ export function OverviewKadavTable({
           <HeroTile label="סה״כ לידים" result={grandLeadsKadav} />
           <HeroTile label="סה״כ הגעות" result={grandArrivalsKadav} />
           <HeroTile label="סה״כ סגירות" result={grandClosingsKadav} />
-          <HeroTile label="סה״כ כסף (כולל מוצרים וירוקים)" result={grandMoneyKadav} isCurrency total />
+          <HeroTile label="סה״כ כסף (כולל מוצרים; ירוקים כבר בתוך החטיבות)" result={grandMoneyKadav} isCurrency total />
         </div>
       </div>
 
@@ -214,17 +221,20 @@ export function OverviewKadavTable({
               <span className="ov-card-name">מוצרים וירוקים — כלל החברה</span>
             </div>
             <MetricBar label="מכירת מוצרים (כללי)" result={productsKadav} isCurrency />
-            <MetricBar label="ירוקים (הפניות)" result={referralsKadav} isCurrency />
+            <MetricBar label="ירוקים (הפניות) — לא בתוך הסה״כ, ר׳ הערה" result={referralsKadav} isCurrency />
           </div>
         </div>
       </div>
 
       <p className="real-note">
         <strong style={{ color: "var(--ink)" }}>סה״כ כסף</strong> (לפי חטיבה) = הכנסות CRM (ממומן+אורגני+דיוור) + ספה
-        ושדרוגים ששויכו לחטיבה. <strong style={{ color: "var(--ink)" }}>ירוקים (הפניות)</strong> מדווחים בדוח כלל-חברתי
-        ללא פירוט לחטיבה, ולכן מוצגים כשורה נפרדת ולא מחולקים בין החטיבות (היעד עדיין מוזן לפי חטיבה ומסוכם כאן).{" "}
-        <strong style={{ color: "var(--ink)" }}>מוצרים</strong> הן מכירות מוצרים כלליות שלא משויכות לחטיבה ספציפית, עם
-        יעד כלל-חברתי משלהן (מוזן ב&quot;הזנת יעדים&quot;).
+        ושדרוגים בפועל, כאשר ספה ושדרוגים = הסה״כ שדיווח ראפיד לחטיבה הזו <em>פחות</em> ההכנסות מ-CRM — כי ראפיד
+        רושם כל תשלום שהתקבל בקליניקה, כולל תשלומים שכבר נספרו בנפרד ב-Zoho, ולא צריך לספור אותם פעמיים.{" "}
+        <strong style={{ color: "var(--ink)" }}>ירוקים (הפניות)</strong> מוצג כאן רק לצורך מעקב אחר יעד ההפניות — הכסף
+        עצמו כבר נכלל בתוך אחת מהחטיבות למעלה (תשלום של לקוח שהגיע בהפניה עדיין מוקלד בראפיד תחת החטיבה שלו), ולכן
+        לא מתווסף שוב לסה״כ הכללי. <strong style={{ color: "var(--ink)" }}>מוצרים</strong> הן מכירות מוצרים כלליות
+        שלא משויכות לחטיבה ספציפית (ולכן לא נכללות בשום ספה ושדרוגים של חטיבה) — יש להן יעד כלל-חברתי משלהן (מוזן
+        ב&quot;הזנת יעדים&quot;).
       </p>
     </>
   );

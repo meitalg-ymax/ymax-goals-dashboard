@@ -1,5 +1,4 @@
-import type { Division } from "@/lib/zoho/transform";
-import type { DivisionMetrics, InvalidReason, RapidCategory } from "@/lib/dashboard/getDashboardData";
+import type { DivisionMetrics, InvalidReason } from "@/lib/dashboard/getDashboardData";
 import { formatCurrency, formatNumber } from "@/lib/metrics/format";
 import { calcLeadsKadav, calcWorkdayKadav } from "@/lib/metrics/pacing";
 import { StageBlock, MoneyOutcome } from "@/components/dashboard/KadavRow";
@@ -11,25 +10,23 @@ function pct(numerator: number, denominator: number): string {
 }
 
 export function DivisionRealCard({
-  division,
   metrics,
   reasons,
   asOf,
   targets,
   rapidActuals,
-  rapidCategories,
+  spaUpgradesActual,
   daysElapsed,
   daysInMonth,
   workDaysElapsed,
   workDaysInMonth,
 }: {
-  division: Division;
   metrics: DivisionMetrics;
   reasons: InvalidReason[];
   asOf: string | null;
   targets: Record<string, number>;
   rapidActuals: Record<string, number>;
-  rapidCategories: RapidCategory[];
+  spaUpgradesActual: number;
   daysElapsed: number;
   daysInMonth: number;
   workDaysElapsed: number;
@@ -75,13 +72,14 @@ export function DivisionRealCard({
   const targetRevenue = targets.revenue_funded_organic + targets.revenue_mailing;
   const revenueKadav = calcWorkdayKadav(totalRevenueCRM, targetRevenue || undefined, workDaysElapsed, workDaysInMonth);
 
-  // ספה/שדרוגים actual: prefer the imported category rows (scripts/import-rapid-sales.mjs
-  // writes the SAME number into manual_entries too, so summing both would double-count).
-  const spaFromCategories = rapidCategories.filter((c) => c.division === division).reduce((s, c) => s + c.amount, 0);
-  const spaActual = spaFromCategories > 0 ? spaFromCategories : (rapidActuals.revenue_spa_upgrades ?? 0);
+  // ספה ושדרוגים actual is passed in already computed (Rapid's category total
+  // for this division minus Zoho's revenue_funded_organic/mailing -- see
+  // getDashboardData.ts for why the raw category total on its own double-counts).
+  const spaActual = spaUpgradesActual;
   const spaKadav = calcWorkdayKadav(spaActual, targets.revenue_spa_upgrades || undefined, workDaysElapsed, workDaysInMonth);
 
-  // ירוקים excluded -- company-wide only, can't be attributed to this division (see overview).
+  // ירוקים excluded -- already embedded in spaActual's underlying Rapid total
+  // wherever it landed, not separately attributable to this division.
   const totalMoneyActual = totalRevenueCRM + spaActual;
   const totalMoneyTarget = targets.revenue_funded_organic + targets.revenue_mailing + targets.revenue_spa_upgrades;
   const totalMoneyKadav = calcWorkdayKadav(totalMoneyActual, totalMoneyTarget || undefined, workDaysElapsed, workDaysInMonth);

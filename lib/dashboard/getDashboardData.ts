@@ -60,6 +60,7 @@ export type DashboardData = {
   targets: Record<Division, Record<string, number>>;
   rapidActuals: Record<Division, Record<string, number>>;
   rapidCategories: RapidCategory[];
+  spaUpgradesActual: Record<Division, number>;
   companyTargets: Record<string, number>;
   lastUpdated: LastUpdated;
   daysElapsed: number;
@@ -181,6 +182,35 @@ export async function getDashboardData(): Promise<DashboardData> {
     }))
     .sort((a, b) => b.amount - a.amount);
 
+  // ספה ושדרוגים actual -- NOT the raw Rapid category total for a division.
+  // Rapid POS records EVERY payment collected (CRM-tracked deals, referral
+  // clients, walk-in upsells alike), so the raw category total for e.g. ymax
+  // already INCLUDES whatever Zoho separately recorded as revenue_funded_organic
+  // /revenue_mailing for the same underlying payments. Adding both would
+  // double-count real money (confirmed with Meital 2026-08-16, who does this
+  // subtraction herself: "כסף ראפיד זה הסך הכל הכללי... צריך להוריד ממנו
+  // ירוקים והכנסות של הזוהו... כדי לקבל ספה ושדרוגים"). The residual --
+  // Rapid's total minus what Zoho already explains -- is the real ספה
+  // ושדרוגים figure. ירוקים (referrals) is NOT subtracted per division here
+  // (it has no division breakdown at all, see UnsplitRow) -- it's already
+  // mixed into whichever division's Rapid total received that payment, so
+  // it nets out naturally at the company-wide total without being added a
+  // second time (see OverviewKadavTable, RevenueTypePie, RevenueByDivisionPie
+  // -- none of them add referralsActualTotal on top of these division totals).
+  const spaUpgradesActual = Object.fromEntries(
+    DIVISIONS.map((d) => {
+      const rapidTotal = rapidCategories.filter((c) => c.division === d).reduce((s, c) => s + c.amount, 0);
+      if (rapidTotal > 0) {
+        const zohoRevenue = divisions[d].revenue_funded_organic + divisions[d].revenue_mailing;
+        return [d, rapidTotal - zohoRevenue];
+      }
+      // No Rapid import yet for this division/month -- fall back to a
+      // manually-entered ספה ושדרוגים actual (already assumed net, not a raw
+      // category total, so no subtraction here).
+      return [d, rapidActuals[d]?.revenue_spa_upgrades ?? 0];
+    })
+  ) as Record<Division, number>;
+
   const maxTimestamp = (timestamps: (string | null | undefined)[]): string | null =>
     timestamps.filter((t): t is string => Boolean(t)).sort().at(-1) ?? null;
 
@@ -202,6 +232,7 @@ export async function getDashboardData(): Promise<DashboardData> {
     targets,
     rapidActuals,
     rapidCategories,
+    spaUpgradesActual,
     companyTargets,
     lastUpdated,
     daysElapsed,

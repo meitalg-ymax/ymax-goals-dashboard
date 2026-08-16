@@ -1,5 +1,5 @@
 import { DIVISIONS, type Division } from "@/lib/zoho/transform";
-import type { DivisionMetrics, RapidCategory } from "@/lib/dashboard/getDashboardData";
+import type { DivisionMetrics } from "@/lib/dashboard/getDashboardData";
 import { formatCurrency } from "@/lib/metrics/format";
 
 const DIVISION_LABELS: Record<Division, string> = {
@@ -22,15 +22,18 @@ const DIVISION_COLORS: Record<Division, string> = {
 
 export function RevenueByDivisionPie({
   divisions,
-  rapidCategories,
+  spaUpgradesActual,
 }: {
   divisions: Record<Division, DivisionMetrics>;
-  rapidCategories: RapidCategory[];
+  spaUpgradesActual: Record<Division, number>;
 }) {
+  // ספה ושדרוגים here is already Rapid's category total for the division
+  // minus that division's own CRM revenue (see getDashboardData.ts) -- adding
+  // the raw category total on top of CRM revenue would double-count real
+  // money Zoho already recorded for the same payments.
   const values = DIVISIONS.map((d) => {
     const m = divisions[d];
-    const spa = rapidCategories.filter((c) => c.division === d).reduce((s, c) => s + c.amount, 0);
-    return { division: d, value: m.revenue_funded_organic + m.revenue_mailing + spa };
+    return { division: d, value: m.revenue_funded_organic + m.revenue_mailing + spaUpgradesActual[d] };
   });
   const total = values.reduce((s, v) => s + v.value, 0);
 

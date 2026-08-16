@@ -1,5 +1,4 @@
-import type { Division } from "@/lib/zoho/transform";
-import type { DivisionMetrics, RapidCategory } from "@/lib/dashboard/getDashboardData";
+import type { DivisionMetrics } from "@/lib/dashboard/getDashboardData";
 import { calcKadav, type KadavResult } from "@/lib/metrics/pacing";
 import { formatCurrency, formatNumber } from "@/lib/metrics/format";
 
@@ -80,21 +79,19 @@ function UnsplitRow({ label, target, isCurrency }: { label: string; target: numb
 }
 
 export function DivisionDetailTable({
-  division,
   metrics,
   targets,
   rapidActuals,
-  rapidCategories,
+  spaUpgradesActual,
   daysElapsed,
   daysInMonth,
   workDaysElapsed,
   workDaysInMonth,
 }: {
-  division: Division;
   metrics: DivisionMetrics;
   targets: Record<string, number>;
   rapidActuals: Record<string, number>;
-  rapidCategories: RapidCategory[];
+  spaUpgradesActual: number;
   daysElapsed: number;
   daysInMonth: number;
   workDaysElapsed: number;
@@ -120,11 +117,11 @@ export function DivisionDetailTable({
     metrics.arrivals_mailing > 0 ? (metrics.closings_mailing / metrics.arrivals_mailing) * 100 : 0;
   const avgDealMail = metrics.closings_mailing > 0 ? metrics.revenue_mailing / metrics.closings_mailing : 0;
 
-  // ספה/שדרוגים actual: prefer the imported category rows (scripts/import-rapid-sales.mjs
-  // writes the SAME number into manual_entries too, so summing both would double-count).
-  // The manual rapid_actual entry is only the real source before that import has run once.
-  const spaFromCategories = rapidCategories.filter((c) => c.division === division).reduce((s, c) => s + c.amount, 0);
-  const spaActual = spaFromCategories > 0 ? spaFromCategories : (rapidActuals.revenue_spa_upgrades ?? 0);
+  // ספה ושדרוגים actual is passed in already computed (Rapid's category total
+  // for this division minus Zoho's revenue_funded_organic/mailing -- see
+  // getDashboardData.ts for why the raw category total on its own double-counts
+  // real money that Zoho already recorded for the same underlying payments).
+  const spaActual = spaUpgradesActual;
 
   // Referrals excluded from this division's total -- see UnsplitRow below.
   const totalMoneyActual = metrics.revenue_funded_organic + metrics.revenue_mailing + spaActual;
