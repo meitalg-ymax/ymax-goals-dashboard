@@ -78,15 +78,10 @@ export type InvalidLeadRow = { id: string; Lead_Source?: string; type?: string; 
 // The specific "מעקב פניה" (field90) disposition values that count as an
 // invalid lead -- NOT simply "field90 is not null", which would also match
 // in-progress statuses like "ממתין לשיחת המשך" (waiting for follow-up call).
-const INVALID_LEAD_REASONS = [
-  "אי התאמה לטיפול",
-  "מרחק",
-  "פרטי קשר שגויים",
-  "אין מענה נעלם בתהליך המכירה",
-  "מכחיש פניה",
-  "הועבר לסניף",
-  "לא הבינה את הפרסום",
-];
+// Narrowed to these 4 reasons only (confirmed with Meital 2026-08-16) --
+// "מרחק", "אין מענה נעלם בתהליך המכירה", and "לא הבינה את הפרסום" no longer
+// count as invalid.
+const INVALID_LEAD_REASONS = ["אי התאמה לטיפול", "פרטי קשר שגויים", "הועבר לסניף", "מכחיש פניה"];
 
 // Invalid leads: ממומן (marketism) leads only, with one of the specific
 // invalid-disposition values in field90.
