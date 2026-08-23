@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { DIVISIONS, type Division } from "@/lib/zoho/transform";
+import { DIVISIONS, BRANCHES, type Division, type Branch } from "@/lib/zoho/transform";
 import { workDaysBetween } from "@/lib/zoho/dateRanges";
 
 export type DivisionMetrics = {
@@ -51,6 +51,19 @@ export type LastUpdated = {
   zohoSync: string | null;
 };
 
+export type BranchMetrics = {
+  meetings: number;
+  arrivals: number;
+  closings: number;
+  revenue: number;
+};
+
+const EMPTY_BRANCH_METRICS: BranchMetrics = { meetings: 0, arrivals: 0, closings: 0, revenue: 0 };
+
+export type BranchDivisionMetrics = { arrivals: number; closings: number; revenue: number };
+
+const EMPTY_BRANCH_DIVISION_METRICS: BranchDivisionMetrics = { arrivals: 0, closings: 0, revenue: 0 };
+
 export type DashboardData = {
   hasSyncedData: boolean;
   asOf: string | null;
@@ -67,6 +80,8 @@ export type DashboardData = {
   daysInMonth: number;
   workDaysElapsed: number;
   workDaysInMonth: number;
+  branchMetrics: Record<Branch, BranchMetrics>;
+  branchDivisionMetrics: Record<Branch, Record<Division, BranchDivisionMetrics>>;
 };
 
 const REFERRALS_CATEGORY = "ירוקים (הפניות)";
@@ -98,6 +113,8 @@ export async function getDashboardData(): Promise<DashboardData> {
     { data: rapidRows },
     { data: categoryRows },
     { data: companyTargetRows },
+    { data: branchMetricRows },
+    { data: branchDivisionMetricRows },
     { data: syncRunRows },
   ] = await Promise.all([
     supabase.from("zoho_metrics").select("division, metric, value, as_of").eq("month", monthStart),
@@ -110,6 +127,8 @@ export async function getDashboardData(): Promise<DashboardData> {
       .eq("month", monthStart),
     supabase.from("rapid_sales_categories").select("category, division, amount, synced_at").eq("month", monthStart),
     supabase.from("company_targets").select("metric, value").eq("month", monthStart),
+    supabase.from("zoho_branch_metrics").select("branch, metric, value").eq("month", monthStart),
+    supabase.from("zoho_branch_division_metrics").select("branch, division, metric, value").eq("month", monthStart),
     supabase
       .from("sync_runs")
       .select("finished_at")
@@ -215,6 +234,31 @@ export async function getDashboardData(): Promise<DashboardData> {
     })
   ) as Record<Division, number>;
 
+  const branchMetrics = Object.fromEntries(
+    BRANCHES.map((b) => [b, { ...EMPTY_BRANCH_METRICS }])
+  ) as Record<Branch, BranchMetrics>;
+  for (const row of branchMetricRows ?? []) {
+    const branch = row.branch as Branch;
+    if (!branchMetrics[branch]) continue;
+    (branchMetrics[branch] as unknown as Record<string, number>)[row.metric] = row.value;
+  }
+
+  const branchDivisionMetrics = Object.fromEntries(
+    BRANCHES.map((b) => [
+      b,
+      Object.fromEntries(DIVISIONS.map((d) => [d, { ...EMPTY_BRANCH_DIVISION_METRICS }])) as Record<
+        Division,
+        BranchDivisionMetrics
+      >,
+    ])
+  ) as Record<Branch, Record<Division, BranchDivisionMetrics>>;
+  for (const row of branchDivisionMetricRows ?? []) {
+    const branch = row.branch as Branch;
+    const division = row.division as Division;
+    if (!branchDivisionMetrics[branch]?.[division]) continue;
+    (branchDivisionMetrics[branch][division] as unknown as Record<string, number>)[row.metric] = row.value;
+  }
+
   const maxTimestamp = (timestamps: (string | null | undefined)[]): string | null =>
     timestamps.filter((t): t is string => Boolean(t)).sort().at(-1) ?? null;
 
@@ -243,5 +287,7 @@ export async function getDashboardData(): Promise<DashboardData> {
     daysInMonth,
     workDaysElapsed,
     workDaysInMonth,
+    branchMetrics,
+    branchDivisionMetrics,
   };
 }

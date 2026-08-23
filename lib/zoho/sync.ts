@@ -6,6 +6,9 @@ import {
   fetchArrivalsForMonth,
   fetchClosingsForMonth,
   fetchMailingLeadsForMonth,
+  fetchBranchMeetingsForMonth,
+  fetchBranchArrivalsForMonth,
+  fetchBranchClosingsForMonth,
 } from "./queries";
 import {
   aggregateLeads,
@@ -13,6 +16,11 @@ import {
   aggregateArrivals,
   aggregateClosingsAndRevenue,
   aggregateMailingLeads,
+  aggregateBranchMeetings,
+  aggregateBranchArrivals,
+  aggregateBranchClosings,
+  aggregateBranchDivisionArrivals,
+  aggregateBranchDivisionClosings,
   type MetricRow,
 } from "./transform";
 
@@ -21,6 +29,8 @@ export type SyncResult = {
   yesterdayDateStr: string;
   metricsWritten: number;
   reasonsWritten: number;
+  branchMetricsWritten: number;
+  branchDivisionMetricsWritten: number;
 };
 
 export async function runZohoSync(
@@ -38,12 +48,24 @@ export async function runZohoSync(
   if (runError) throw new Error(`Failed to create sync_runs row: ${runError.message}`);
 
   try {
-    const [leadsRows, invalidRows, arrivalsRows, closingsRows, mailingLeadsRows] = await Promise.all([
+    const [
+      leadsRows,
+      invalidRows,
+      arrivalsRows,
+      closingsRows,
+      mailingLeadsRows,
+      branchMeetingRows,
+      branchArrivalRows,
+      branchClosingRows,
+    ] = await Promise.all([
       fetchLeadsForMonth(range),
       fetchInvalidLeadsForMonth(range),
       fetchArrivalsForMonth(range),
       fetchClosingsForMonth(range),
       fetchMailingLeadsForMonth(range),
+      fetchBranchMeetingsForMonth(range),
+      fetchBranchArrivalsForMonth(range),
+      fetchBranchClosingsForMonth(range),
     ]);
 
     const { metrics: invalidMetrics, reasons } = aggregateInvalidLeads(invalidRows);
@@ -95,6 +117,44 @@ export async function runZohoSync(
       if (reasonsError) throw new Error(`Failed to insert zoho_invalid_lead_reasons: ${reasonsError.message}`);
     }
 
+    const branchMetrics = [
+      ...aggregateBranchMeetings(branchMeetingRows),
+      ...aggregateBranchArrivals(branchArrivalRows),
+      ...aggregateBranchClosings(branchClosingRows),
+    ];
+    const branchMetricUpserts = branchMetrics.map((m) => ({
+      month: range.monthStartDateStr,
+      branch: m.branch,
+      metric: m.metric,
+      value: m.value,
+      as_of: range.yesterdayDateStr,
+      synced_at: new Date().toISOString(),
+    }));
+    const { error: branchMetricsError } = await supabase
+      .from("zoho_branch_metrics")
+      .upsert(branchMetricUpserts, { onConflict: "month,branch,metric" });
+    if (branchMetricsError) throw new Error(`Failed to upsert zoho_branch_metrics: ${branchMetricsError.message}`);
+
+    const branchDivisionMetrics = [
+      ...aggregateBranchDivisionArrivals(branchArrivalRows),
+      ...aggregateBranchDivisionClosings(branchClosingRows),
+    ];
+    const branchDivisionMetricUpserts = branchDivisionMetrics.map((m) => ({
+      month: range.monthStartDateStr,
+      branch: m.branch,
+      division: m.division,
+      metric: m.metric,
+      value: m.value,
+      as_of: range.yesterdayDateStr,
+      synced_at: new Date().toISOString(),
+    }));
+    const { error: branchDivisionMetricsError } = await supabase
+      .from("zoho_branch_division_metrics")
+      .upsert(branchDivisionMetricUpserts, { onConflict: "month,branch,division,metric" });
+    if (branchDivisionMetricsError) {
+      throw new Error(`Failed to upsert zoho_branch_division_metrics: ${branchDivisionMetricsError.message}`);
+    }
+
     await supabase
       .from("sync_runs")
       .update({ status: "success", finished_at: new Date().toISOString() })
@@ -105,6 +165,8 @@ export async function runZohoSync(
       yesterdayDateStr: range.yesterdayDateStr,
       metricsWritten: metricUpserts.length,
       reasonsWritten: reasonInserts.length,
+      branchMetricsWritten: branchMetricUpserts.length,
+      branchDivisionMetricsWritten: branchDivisionMetricUpserts.length,
     };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

@@ -10,6 +10,7 @@ import { RevenueTypePie } from "@/components/dashboard/RevenueTypePie";
 import { RevenueByDivisionPie } from "@/components/dashboard/RevenueByDivisionPie";
 import { RapidCategoryBreakdown } from "@/components/dashboard/RapidCategoryBreakdown";
 import { LeadsByDateTab } from "@/components/dashboard/LeadsByDateTab";
+import { BranchTab } from "@/components/dashboard/BranchTab";
 import { DataOpsBar } from "@/components/dashboard/DataOpsBar";
 import type { DashboardData } from "@/lib/dashboard/getDashboardData";
 import { DIVISIONS, type Division } from "@/lib/zoho/transform";
@@ -17,6 +18,7 @@ import { DIVISIONS, type Division } from "@/lib/zoho/transform";
 const GROUPS: TabDef[] = [
   { id: "kadav", label: "דוח קד״ב" },
   { id: "leads", label: "מעקב לידים" },
+  { id: "branches", label: "לפי סניף" },
 ];
 
 const TABS: TabDef[] = [
@@ -169,6 +171,10 @@ export function DashboardShell({ data }: { data: DashboardData }) {
         )}
 
       {activeGroup === "leads" && <LeadsByDateTab />}
+
+      {activeGroup === "branches" && (
+        <BranchTab branchMetrics={data.branchMetrics} branchDivisionMetrics={data.branchDivisionMetrics} />
+      )}
 
       <footer>YAFA MAXIMOV — מעקב יעדים</footer>
     </div>

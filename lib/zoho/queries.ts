@@ -142,6 +142,53 @@ export async function fetchClosingsForMonth(range: MonthRange): Promise<ClosingR
   return runCoqlAll(query) as Promise<ClosingRow[]>;
 }
 
+// Branch (סניף, field123456) -- only populated once a meeting is scheduled,
+// so these three queries mirror the leads/arrivals/closings ones above but
+// scoped to `field123456 is not null` instead of a division/type filter, and
+// select `type` too so the branch funnel can also be cross-tabbed by
+// division (see aggregateBranchDivision* in transform.ts).
+export type BranchMeetingRow = { id: string; field123456?: string };
+
+export async function fetchBranchMeetingsForMonth(range: MonthRange): Promise<BranchMeetingRow[]> {
+  const query = `select id, field123456 from Leads where ${andAll([
+    `Created_Time >= '${range.monthStartDateTimeStr}'`,
+    `Created_Time <= '${range.yesterdayEndDateTimeStr}'`,
+    `field123456 is not null`,
+  ])}`;
+  return runCoqlAll(query) as Promise<BranchMeetingRow[]>;
+}
+
+export type BranchArrivalRow = { id: string; field123456?: string; type?: string; Lead_Status?: string; field13?: string };
+
+export async function fetchBranchArrivalsForMonth(range: MonthRange): Promise<BranchArrivalRow[]> {
+  const query = `select id, field123456, type, Lead_Status, field13 from Leads where ${andAll([
+    `field123456 is not null`,
+    `Lead_Status in ('1לא נסגר','1נסגרה עסקה')`,
+    `field13 >= '${range.monthStartDateTimeStr}'`,
+    `field13 <= '${range.yesterdayEndDateTimeStr}'`,
+  ])}`;
+  return runCoqlAll(query) as Promise<BranchArrivalRow[]>;
+}
+
+export type BranchClosingRow = {
+  id: string;
+  field123456?: string;
+  type?: string;
+  Lead_Status?: string;
+  field_16?: string;
+  field1234567?: number;
+};
+
+export async function fetchBranchClosingsForMonth(range: MonthRange): Promise<BranchClosingRow[]> {
+  const query = `select id, field123456, type, Lead_Status, field_16, field1234567 from Leads where ${andAll([
+    `field123456 is not null`,
+    `Lead_Status = '1נסגרה עסקה'`,
+    `field_16 >= '${range.monthStartDateStr}'`,
+    `field_16 <= '${range.yesterdayDateStr}'`,
+  ])}`;
+  return runCoqlAll(query) as Promise<BranchClosingRow[]>;
+}
+
 export type MailingLeadRow = { id: string; Lead_Source?: string; type?: string; Tag?: unknown };
 
 // Mailing leads: Tag contains "<Hebrew month> <YY>" for the CURRENT month --

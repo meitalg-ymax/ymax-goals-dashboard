@@ -1,5 +1,14 @@
 import { TECH_TYPE_VALUES } from "./queries";
-import type { LeadRow, InvalidLeadRow, ArrivalRow, ClosingRow, MailingLeadRow } from "./queries";
+import type {
+  LeadRow,
+  InvalidLeadRow,
+  ArrivalRow,
+  ClosingRow,
+  MailingLeadRow,
+  BranchMeetingRow,
+  BranchArrivalRow,
+  BranchClosingRow,
+} from "./queries";
 
 export type Division = "ymax" | "body" | "tech" | "doctor" | "mira_dry";
 export const DIVISIONS: Division[] = ["ymax", "body", "tech", "doctor", "mira_dry"];
@@ -168,6 +177,91 @@ export function aggregateClosingsAndRevenue(rows: ClosingRow[]): MetricRow[] {
     out.push({ division, metric: "revenue_funded", value: sum(fundedRows) });
     out.push({ division, metric: "revenue_organic", value: sum(organicRows) });
     out.push({ division, metric: "revenue_mailing", value: sum(mailingRows) });
+  }
+  return out;
+}
+
+// Branch (סניף, field123456) -- populated only once a lead reaches the
+// meeting-scheduling stage (confirmed with Meital 2026-08-23), so this is a
+// dimension on the SAME lead records already used for arrivals/closings, not
+// a separate data source. Real live values are full addresses, not the short
+// picklist labels ("רמת-גן, קניון אילון, אבא הלל 301..." not "רמת גן"), so
+// this matches by substring rather than exact value -- robust to whichever
+// variant a given record happens to carry.
+export type Branch = "ramat_gan" | "rishon" | "jerusalem" | "haifa";
+export const BRANCHES: Branch[] = ["ramat_gan", "rishon", "jerusalem", "haifa"];
+
+export function classifyBranch(fieldValue: string | undefined | null): Branch | null {
+  const s = (fieldValue ?? "").trim();
+  if (!s) return null;
+  if (s.includes("חיפה")) return "haifa";
+  if (s.includes("רמת")) return "ramat_gan";
+  if (s.includes("ראשל") || s.includes("לישנסקי")) return "rishon";
+  if (s.includes("ירושלים") || s.includes("כנפי נשרים")) return "jerusalem";
+  return null;
+}
+
+export type BranchMetricRow = { branch: Branch; metric: string; value: number };
+
+// "meetings" stands in for "leads" in the branch funnel -- see module note
+// above, a raw lead never gets a branch until a meeting is scheduled for it.
+export function aggregateBranchMeetings(rows: BranchMeetingRow[]): BranchMetricRow[] {
+  return BRANCHES.map((branch) => ({
+    branch,
+    metric: "meetings",
+    value: rows.filter((r) => classifyBranch(r.field123456) === branch).length,
+  }));
+}
+
+export function aggregateBranchArrivals(rows: BranchArrivalRow[]): BranchMetricRow[] {
+  return BRANCHES.map((branch) => ({
+    branch,
+    metric: "arrivals",
+    value: rows.filter((r) => classifyBranch(r.field123456) === branch).length,
+  }));
+}
+
+export function aggregateBranchClosings(rows: BranchClosingRow[]): BranchMetricRow[] {
+  const out: BranchMetricRow[] = [];
+  for (const branch of BRANCHES) {
+    const branchRows = rows.filter((r) => classifyBranch(r.field123456) === branch);
+    out.push({ branch, metric: "closings", value: branchRows.length });
+    out.push({ branch, metric: "revenue", value: branchRows.reduce((s, r) => s + (r.field1234567 ?? 0), 0) });
+  }
+  return out;
+}
+
+// Cross-tab: within each branch, how much of it is ymax/body/tech/doctor/mira
+// dry -- division classified by `type`, same rule as every other non-leads
+// metric (confirmed 2026-08-23: Meital wants this nested under the branch).
+export type BranchDivisionMetricRow = { branch: Branch; division: Division; metric: string; value: number };
+
+export function aggregateBranchDivisionArrivals(rows: BranchArrivalRow[]): BranchDivisionMetricRow[] {
+  const out: BranchDivisionMetricRow[] = [];
+  for (const branch of BRANCHES) {
+    const branchRows = rows.filter((r) => classifyBranch(r.field123456) === branch);
+    for (const division of DIVISIONS) {
+      const value = branchRows.filter((r) => classifyDivisionFromType(r.type) === division).length;
+      out.push({ branch, division, metric: "arrivals", value });
+    }
+  }
+  return out;
+}
+
+export function aggregateBranchDivisionClosings(rows: BranchClosingRow[]): BranchDivisionMetricRow[] {
+  const out: BranchDivisionMetricRow[] = [];
+  for (const branch of BRANCHES) {
+    const branchRows = rows.filter((r) => classifyBranch(r.field123456) === branch);
+    for (const division of DIVISIONS) {
+      const divisionRows = branchRows.filter((r) => classifyDivisionFromType(r.type) === division);
+      out.push({ branch, division, metric: "closings", value: divisionRows.length });
+      out.push({
+        branch,
+        division,
+        metric: "revenue",
+        value: divisionRows.reduce((s, r) => s + (r.field1234567 ?? 0), 0),
+      });
+    }
   }
   return out;
 }

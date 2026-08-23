@@ -508,6 +508,211 @@ a {
   gap: 10px;
   flex-wrap: wrap;
 }
+
+/* "לפי סניף" tab */
+.scope-note {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: var(--shadow-sm);
+  padding: 14px 18px;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.scope-note-icon {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 14px;
+}
+.scope-note p {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.65;
+  color: #4a4456;
+}
+.scope-note strong {
+  color: var(--ink);
+}
+
+.totals-strip {
+  background: linear-gradient(135deg, var(--ink), #4a3a70);
+  border-radius: 20px;
+  padding: 20px 22px;
+  box-shadow: var(--shadow);
+}
+.totals-strip .section-label {
+  color: rgba(255, 255, 255, 0.72);
+}
+.totals-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+}
+@media (max-width: 760px) {
+  .totals-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+.total-tile {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 14px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.tt-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.75);
+}
+.tt-value {
+  font-size: 24px;
+  font-weight: 800;
+  color: #fff;
+}
+.tt-sub {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.65);
+}
+.total-tile-money {
+  background: rgba(201, 165, 92, 0.22);
+  border-color: rgba(201, 165, 92, 0.4);
+}
+
+.branch-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+}
+@media (max-width: 900px) {
+  .branch-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.branch-card {
+  background: var(--surface);
+  border-radius: 20px;
+  box-shadow: var(--shadow);
+  padding: 20px 20px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.branch-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.branch-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex: none;
+}
+.branch-head h2 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--ink);
+}
+.branch-badge {
+  margin-inline-start: auto;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  background: var(--surface-2);
+  padding: 3px 10px;
+  border-radius: 100px;
+}
+
+.branch-money {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.money-cell {
+  background: var(--surface-2);
+  border-radius: 12px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  text-align: center;
+}
+.mc-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--muted);
+}
+.mc-val {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.branch-div-table {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.branch-div-header,
+.branch-div-row {
+  display: grid;
+  grid-template-columns: 1.4fr 0.8fr 0.8fr 1fr;
+  align-items: center;
+  gap: 6px;
+}
+.branch-div-header {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  padding-bottom: 4px;
+}
+.branch-div-header span:not(:first-child),
+.branch-div-row span:not(.branch-div-name) {
+  text-align: center;
+}
+.branch-div-row {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 12.5px;
+  color: var(--ink);
+  font-weight: 600;
+}
+.branch-div-row:last-child {
+  border-bottom: none;
+}
+.branch-div-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+}
+.branch-div-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex: none;
+}
 .legacy-label {
   display: flex;
   align-items: center;

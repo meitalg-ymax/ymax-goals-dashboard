@@ -4,7 +4,22 @@ import { formatNumber } from "@/lib/metrics/format";
 // (width = % of the stage above that converted through), centered at 50%.
 // A minimum sliver keeps a stage visible even at very low/zero volume rather
 // than collapsing to an invisible line.
-export function FunnelShape({ leads, arrivals, closings }: { leads: number; arrivals: number; closings: number }) {
+export function FunnelShape({
+  leads,
+  arrivals,
+  closings,
+  firstLabel = "לידים",
+  firstPctCap = "מהלידים",
+}: {
+  leads: number;
+  arrivals: number;
+  closings: number;
+  /** Override for the top-stage label -- e.g. "פגישות מתואמות" on the branch
+   * funnel, which starts one stage later than the division funnel (see
+   * BranchTab). */
+  firstLabel?: string;
+  firstPctCap?: string;
+}) {
   const conv1 = leads > 0 ? Math.min(1, arrivals / leads) : 0;
   const width1 = Math.max(conv1 * 100, 3);
   const conv2 = arrivals > 0 ? Math.min(1, closings / arrivals) : 0;
@@ -23,7 +38,7 @@ export function FunnelShape({ leads, arrivals, closings }: { leads: number; arri
     <div className="funnel-shape">
       <div className="ftag-row first">
         <span className="ftag">
-          לידים <span className="n">{formatNumber(leads)}</span>
+          {firstLabel} <span className="n">{formatNumber(leads)}</span>
         </span>
       </div>
       <div className="fseg-wrap">
@@ -34,7 +49,7 @@ export function FunnelShape({ leads, arrivals, closings }: { leads: number; arri
       </div>
       <div className="fseg-pct-side fseg-pct-side-1">
         <span className="fseg-pct-val">{pct1}</span>
-        <span className="fseg-pct-cap">מהלידים</span>
+        <span className="fseg-pct-cap">{firstPctCap}</span>
       </div>
       <div className="ftag-row">
         <span className="ftag">
