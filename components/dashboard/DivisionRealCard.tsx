@@ -4,6 +4,11 @@ import { calcLeadsKadav, calcWorkdayKadav } from "@/lib/metrics/pacing";
 import { StageBlock, MoneyOutcome } from "@/components/dashboard/KadavRow";
 import { FunnelShape } from "@/components/dashboard/FunnelShape";
 
+function pct(numerator: number, denominator: number): string {
+  if (denominator <= 0) return "—";
+  return `${((numerator / denominator) * 100).toFixed(1)}%`;
+}
+
 export function DivisionRealCard({
   metrics,
   reasons,
@@ -173,8 +178,8 @@ export function DivisionRealCard({
         </p>
         <FunnelShape leads={totalLeads} arrivals={totalArrivals} closings={totalClosings} />
         <StageBlock title="לידים" result={leadsKadav} />
-        <StageBlock title="הגעות" result={arrivalsKadav} />
-        <StageBlock title="סגירות" result={closingsKadav} />
+        <StageBlock title="הגעות" note={`(${pct(totalArrivals, totalLeads)} מהלידים)`} result={arrivalsKadav} />
+        <StageBlock title="סגירות" note={`(${pct(totalClosings, totalArrivals)} מהמגיעות)`} result={closingsKadav} />
         <MoneyOutcome
           title="כסף (CRM)"
           result={revenueKadav}
@@ -197,11 +202,11 @@ export function DivisionRealCard({
             </p>
             <FunnelShape leads={leadsFO} arrivals={arrivalsFO} closings={closingsFO} />
             <StageBlock title="לידים" result={leadsFOKadav} />
-            <StageBlock title="הגעות" result={arrivalsFOKadav} />
+            <StageBlock title="הגעות" note={`(${pct(arrivalsFO, leadsFO)} מהלידים)`} result={arrivalsFOKadav} />
             <p className="money-avg" style={{ margin: "-6px 0 0" }}>
               מתוך זה: {formatNumber(metrics.arrivals_funded)} ממומן · {formatNumber(metrics.arrivals_organic)} אורגני
             </p>
-            <StageBlock title="סגירות" result={closingsFOKadav} />
+            <StageBlock title="סגירות" note={`(${pct(closingsFO, arrivalsFO)} מהמגיעות)`} result={closingsFOKadav} />
             <p className="money-avg" style={{ margin: "-6px 0 0" }}>
               מתוך זה: {formatNumber(metrics.closings_funded)} ממומן · {formatNumber(metrics.closings_organic)} אורגני
             </p>
@@ -220,8 +225,8 @@ export function DivisionRealCard({
             </p>
             <FunnelShape leads={leadsMail} arrivals={arrivalsMail} closings={closingsMail} />
             <StageBlock title="לידים" result={leadsMailKadav} />
-            <StageBlock title="הגעות" result={arrivalsMailKadav} />
-            <StageBlock title="סגירות" result={closingsMailKadav} />
+            <StageBlock title="הגעות" note={`(${pct(arrivalsMail, leadsMail)} מהלידים)`} result={arrivalsMailKadav} />
+            <StageBlock title="סגירות" note={`(${pct(closingsMail, arrivalsMail)} מהמגיעות)`} result={closingsMailKadav} />
             <MoneyOutcome
               title="כסף"
               result={revenueMailKadav}

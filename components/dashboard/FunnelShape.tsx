@@ -31,7 +31,12 @@ export function FunnelShape({ leads, arrivals, closings }: { leads: number; arri
           className="fseg fseg-1"
           style={{ clipPath: `polygon(0% 0%, 100% 0%, ${50 + half1}% 100%, ${50 - half1}% 100%)` }}
         />
-        <span className="fseg-pct">{pct1} מהלידים</span>
+        <span className="fseg-pct">
+          <span className="fseg-pct-pill">
+            <span className="fseg-pct-val">{pct1}</span>
+            <span className="fseg-pct-cap">מהלידים</span>
+          </span>
+        </span>
       </div>
       <div className="ftag-row">
         <span className="ftag">
@@ -45,7 +50,12 @@ export function FunnelShape({ leads, arrivals, closings }: { leads: number; arri
             clipPath: `polygon(${50 - half1}% 0%, ${50 + half1}% 0%, ${50 + half2}% 100%, ${50 - half2}% 100%)`,
           }}
         />
-        <span className="fseg-pct">{pct2} מהמגיעות</span>
+        <span className="fseg-pct">
+          <span className="fseg-pct-pill">
+            <span className="fseg-pct-val">{pct2}</span>
+            <span className="fseg-pct-cap">מהמגיעות</span>
+          </span>
+        </span>
       </div>
       <div className="ftag-row">
         <span className="ftag">
