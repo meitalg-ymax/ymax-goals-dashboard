@@ -181,13 +181,14 @@ export function aggregateClosingsAndRevenue(rows: ClosingRow[]): MetricRow[] {
   return out;
 }
 
-// Branch (סניף, field123456) -- populated only once a lead reaches the
-// meeting-scheduling stage (confirmed with Meital 2026-08-23), so this is a
+// Branch (סניף) -- populated only once a lead reaches the meeting-scheduling
+// stage in Zoho (field123456, confirmed with Meital 2026-08-23), so it's a
 // dimension on the SAME lead records already used for arrivals/closings, not
-// a separate data source. Real live values are full addresses, not the short
-// picklist labels ("רמת-גן, קניון אילון, אבא הלל 301..." not "רמת גן"), so
-// this matches by substring rather than exact value -- robust to whichever
-// variant a given record happens to carry.
+// a separate data source there. Also appears as its own column in Rapid's
+// SalesReport export (confirmed 2026-08-23), in a COMPLETELY different text
+// format ("יפה מקסימוב ר\"ג" vs Zoho's "רמת-גן, קניון אילון, אבא הלל 301...")
+// -- this matches by substring across BOTH formats rather than exact value,
+// so it's robust to whichever source and variant a given record carries.
 export type Branch = "ramat_gan" | "rishon" | "jerusalem" | "haifa";
 export const BRANCHES: Branch[] = ["ramat_gan", "rishon", "jerusalem", "haifa"];
 
@@ -195,7 +196,7 @@ export function classifyBranch(fieldValue: string | undefined | null): Branch | 
   const s = (fieldValue ?? "").trim();
   if (!s) return null;
   if (s.includes("חיפה")) return "haifa";
-  if (s.includes("רמת")) return "ramat_gan";
+  if (s.includes("רמת") || s.includes('ר"ג') || s.includes("ר״ג")) return "ramat_gan";
   if (s.includes("ראשל") || s.includes("לישנסקי")) return "rishon";
   if (s.includes("ירושלים") || s.includes("כנפי נשרים")) return "jerusalem";
   return null;

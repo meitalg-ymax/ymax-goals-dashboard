@@ -82,6 +82,7 @@ export type DashboardData = {
   workDaysInMonth: number;
   branchMetrics: Record<Branch, BranchMetrics>;
   branchDivisionMetrics: Record<Branch, Record<Division, BranchDivisionMetrics>>;
+  rapidRevenueByBranch: Record<Branch, number>;
 };
 
 const REFERRALS_CATEGORY = "ירוקים (הפניות)";
@@ -115,6 +116,7 @@ export async function getDashboardData(): Promise<DashboardData> {
     { data: companyTargetRows },
     { data: branchMetricRows },
     { data: branchDivisionMetricRows },
+    { data: rapidBranchRows },
     { data: syncRunRows },
   ] = await Promise.all([
     supabase.from("zoho_metrics").select("division, metric, value, as_of").eq("month", monthStart),
@@ -129,6 +131,7 @@ export async function getDashboardData(): Promise<DashboardData> {
     supabase.from("company_targets").select("metric, value").eq("month", monthStart),
     supabase.from("zoho_branch_metrics").select("branch, metric, value").eq("month", monthStart),
     supabase.from("zoho_branch_division_metrics").select("branch, division, metric, value").eq("month", monthStart),
+    supabase.from("rapid_sales_by_branch").select("branch, amount").eq("month", monthStart),
     supabase
       .from("sync_runs")
       .select("finished_at")
@@ -259,6 +262,12 @@ export async function getDashboardData(): Promise<DashboardData> {
     (branchDivisionMetrics[branch][division] as unknown as Record<string, number>)[row.metric] = row.value;
   }
 
+  const rapidRevenueByBranch = Object.fromEntries(BRANCHES.map((b) => [b, 0])) as Record<Branch, number>;
+  for (const row of rapidBranchRows ?? []) {
+    const branch = row.branch as Branch;
+    if (branch in rapidRevenueByBranch) rapidRevenueByBranch[branch] = row.amount as number;
+  }
+
   const maxTimestamp = (timestamps: (string | null | undefined)[]): string | null =>
     timestamps.filter((t): t is string => Boolean(t)).sort().at(-1) ?? null;
 
@@ -289,5 +298,6 @@ export async function getDashboardData(): Promise<DashboardData> {
     workDaysInMonth,
     branchMetrics,
     branchDivisionMetrics,
+    rapidRevenueByBranch,
   };
 }

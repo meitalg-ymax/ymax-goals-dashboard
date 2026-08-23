@@ -173,7 +173,11 @@ export function DashboardShell({ data }: { data: DashboardData }) {
       {activeGroup === "leads" && <LeadsByDateTab />}
 
       {activeGroup === "branches" && (
-        <BranchTab branchMetrics={data.branchMetrics} branchDivisionMetrics={data.branchDivisionMetrics} />
+        <BranchTab
+          branchMetrics={data.branchMetrics}
+          branchDivisionMetrics={data.branchDivisionMetrics}
+          rapidRevenueByBranch={data.rapidRevenueByBranch}
+        />
       )}
 
       <footer>YAFA MAXIMOV — מעקב יעדים</footer>

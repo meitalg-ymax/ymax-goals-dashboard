@@ -37,10 +37,12 @@ function BranchCard({
   branch,
   metrics,
   divisionBreakdown,
+  rapidRevenue,
 }: {
   branch: Branch;
   metrics: BranchMetrics;
   divisionBreakdown: Record<Division, BranchDivisionMetrics>;
+  rapidRevenue: number;
 }) {
   const avgDeal = metrics.closings > 0 ? metrics.revenue / metrics.closings : 0;
   const activeDivisions = DIVISIONS.filter(
@@ -65,12 +67,16 @@ function BranchCard({
 
       <div className="branch-money">
         <div className="money-cell">
-          <span className="mc-label">הכנסות</span>
+          <span className="mc-label">הכנסות CRM</span>
           <span className="mc-val">{formatCurrency(metrics.revenue)}</span>
         </div>
         <div className="money-cell">
           <span className="mc-label">שווי עסקה ממוצע</span>
           <span className="mc-val">{avgDeal > 0 ? formatCurrency(avgDeal) : "—"}</span>
+        </div>
+        <div className="money-cell">
+          <span className="mc-label">כסף ראפיד (הכל)</span>
+          <span className="mc-val">{rapidRevenue > 0 ? formatCurrency(rapidRevenue) : "—"}</span>
         </div>
       </div>
 
@@ -102,9 +108,11 @@ function BranchCard({
 export function BranchTab({
   branchMetrics,
   branchDivisionMetrics,
+  rapidRevenueByBranch,
 }: {
   branchMetrics: Record<Branch, BranchMetrics>;
   branchDivisionMetrics: Record<Branch, Record<Division, BranchDivisionMetrics>>;
+  rapidRevenueByBranch: Record<Branch, number>;
 }) {
   // Only branches with real activity this month -- so a branch that never
   // shows up in the field (e.g. חיפה, present in Zoho's picklist but unused
@@ -118,8 +126,9 @@ export function BranchTab({
       arrivals: acc.arrivals + branchMetrics[b].arrivals,
       closings: acc.closings + branchMetrics[b].closings,
       revenue: acc.revenue + branchMetrics[b].revenue,
+      rapidRevenue: acc.rapidRevenue + rapidRevenueByBranch[b],
     }),
-    { meetings: 0, arrivals: 0, closings: 0, revenue: 0 }
+    { meetings: 0, arrivals: 0, closings: 0, revenue: 0, rapidRevenue: 0 }
   );
   const arrivalsPct = totals.meetings > 0 ? `${((totals.arrivals / totals.meetings) * 100).toFixed(1)}% מהפגישות` : null;
   const closingsPct = totals.arrivals > 0 ? `${((totals.closings / totals.arrivals) * 100).toFixed(1)}% מהמגיעות` : null;
@@ -145,7 +154,8 @@ export function BranchTab({
         <p>
           שדה הסניף מתמלא רק כשנקבעת פגישה — לכן המשפך כאן מתחיל ב<strong>פגישות מתואמות</strong>, לא בכלל הלידים.
           חלק גדול מהלידים לעולם לא מגיע לשלב הזה, ולכן אין להם סניף בכלל. <strong>לידים לא תקינים</strong> ונתוני{" "}
-          <strong>כסף ראפיד / ספה ושדרוגים / ירוקים / תקציב</strong> אינם מחולקים לפי סניף כרגע.
+          <strong>ספה ושדרוגים / ירוקים / תקציב</strong> אינם מחולקים לפי סניף כרגע. <strong>כסף ראפיד</strong> כן
+          מחולק לפי סניף (מדוח SalesReport), אך זה הסה״כ הכללי של הסניף — לא מפוצל לפי חטיבה.
         </p>
       </div>
 
@@ -167,8 +177,12 @@ export function BranchTab({
             {closingsPct && <span className="tt-sub">{closingsPct}</span>}
           </div>
           <div className="total-tile total-tile-money">
-            <span className="tt-label">הכנסות (CRM)</span>
+            <span className="tt-label">הכנסות CRM</span>
             <span className="tt-value">{formatCurrency(totals.revenue)}</span>
+          </div>
+          <div className="total-tile total-tile-money">
+            <span className="tt-label">כסף ראפיד (הכל)</span>
+            <span className="tt-value">{formatCurrency(totals.rapidRevenue)}</span>
           </div>
         </div>
       </section>
@@ -180,6 +194,7 @@ export function BranchTab({
             branch={branch}
             metrics={branchMetrics[branch]}
             divisionBreakdown={branchDivisionMetrics[branch]}
+            rapidRevenue={rapidRevenueByBranch[branch]}
           />
         ))}
       </section>

@@ -1,6 +1,6 @@
 import * as XLSX from "xlsx";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Division } from "@/lib/zoho/transform";
+import { classifyBranch, type Branch, type Division } from "@/lib/zoho/transform";
 
 // Imports a Rapid POS "SalesReport" export (general clinic revenue -- hair
 // removal, injections, tech treatments, MiraDry, and clinic products). This
@@ -35,10 +35,12 @@ const PRODUCT_CATEGORIES = ["מוצרים יפה מקסימוב", "מוצרים 
 const PRODUCTS_LABEL = "מוצרים יפה";
 
 export type CategoryRow = { category: string; division: Division | null; amount: number };
+export type BranchRevenueRow = { branch: Branch; amount: number };
 export type ParsedRapidSales = {
   month: string;
   categoryRows: CategoryRow[];
   unmapped: { category: string; amount: number }[];
+  branchRows: BranchRevenueRow[];
   rowCount: number;
 };
 
@@ -62,11 +64,16 @@ export function parseRapidSalesReport(buffer: Buffer): ParsedRapidSales {
   const dataRows = rows.slice(3).filter((r) => r.length && r[0] !== "");
 
   const rawTotals = new Map<string, number>();
+  const rawBranchTotals = new Map<Branch, number>();
   for (const r of dataRows) {
     const category = String(r[2]);
     const total = Number(r[15]) || 0;
     rawTotals.set(category, (rawTotals.get(category) ?? 0) + total);
+
+    const branch = classifyBranch(String(r[0]));
+    if (branch) rawBranchTotals.set(branch, (rawBranchTotals.get(branch) ?? 0) + total);
   }
+  const branchRows: BranchRevenueRow[] = [...rawBranchTotals].map(([branch, amount]) => ({ branch, amount }));
 
   const categoryRows: CategoryRow[] = [];
   const unmapped: { category: string; amount: number }[] = [];
@@ -91,11 +98,11 @@ export function parseRapidSalesReport(buffer: Buffer): ParsedRapidSales {
     categoryRows.push({ category: u.category, division: null, amount: u.amount });
   }
 
-  return { month, categoryRows, unmapped, rowCount: dataRows.length };
+  return { month, categoryRows, unmapped, branchRows, rowCount: dataRows.length };
 }
 
 export async function applyRapidSalesImport(supabase: SupabaseClient, parsed: ParsedRapidSales) {
-  const { month, categoryRows, unmapped } = parsed;
+  const { month, categoryRows, unmapped, branchRows } = parsed;
 
   // Replace this importer's own categories for the month only --
   // rapid_sales_categories also holds rows from the referrals importer,
@@ -114,6 +121,19 @@ export async function applyRapidSalesImport(supabase: SupabaseClient, parsed: Pa
     .from("rapid_sales_categories")
     .insert(categoryRows.map((c) => ({ month, category: c.category, division: c.division, amount: c.amount })));
   if (insertError) throw new Error(`Failed to insert category rows: ${insertError.message}`);
+
+  // rapid_sales_by_branch is exclusively owned by this importer (unlike
+  // rapid_sales_categories, nothing else writes into it), so a full
+  // delete-then-insert for the month is safe -- no risk of clobbering
+  // another importer's rows.
+  const { error: branchDeleteError } = await supabase.from("rapid_sales_by_branch").delete().eq("month", month);
+  if (branchDeleteError) throw new Error(`Failed to clear old branch rows: ${branchDeleteError.message}`);
+  if (branchRows.length > 0) {
+    const { error: branchInsertError } = await supabase
+      .from("rapid_sales_by_branch")
+      .insert(branchRows.map((b) => ({ month, branch: b.branch, amount: b.amount })));
+    if (branchInsertError) throw new Error(`Failed to insert branch rows: ${branchInsertError.message}`);
+  }
 
   const byDivision = new Map<Division, number>();
   for (const c of categoryRows) {
@@ -140,5 +160,5 @@ export async function applyRapidSalesImport(supabase: SupabaseClient, parsed: Pa
     .upsert(manualEntryRows, { onConflict: "kind,month,division,metric" });
   if (upsertError) throw new Error(`Failed to upsert revenue_spa_upgrades: ${upsertError.message}`);
 
-  return { month, categoriesWritten: categoryRows.length, divisionsUpdated: byDivision.size };
+  return { month, categoriesWritten: categoryRows.length, divisionsUpdated: byDivision.size, branchesWritten: branchRows.length };
 }
