@@ -79,6 +79,14 @@ export function classifyDivisionFromType(type: string | undefined): Division | n
   // value, but until it's fixed at the source, map it to tech so these leads
   // aren't silently dropped from every division's numbers.
   if (t === "body tech") return "tech";
+  // Plain "tech" (the division name itself, not one of the TECH_TYPE_VALUES
+  // treatment names) is also a real picklist value some leads carry --
+  // confirmed 2026-08-23 by comparing the branch tab's total (which doesn't
+  // depend on `type`) against the division-based קד"ב total: 3 leads with
+  // type="tech" were silently dropped from every division metric everywhere,
+  // only surfacing once there was an independent branch-only total to catch
+  // the gap against.
+  if (t === "tech") return "tech";
   if (t === "ymax") return "ymax";
   if (t === "body") return "body";
   if (t === "doctor") return "doctor";
