@@ -781,10 +781,25 @@ a {
   gap: 20px;
 }
 
-/* the funnel shape itself — a real tapering vessel */
+/* the funnel shape itself — a real tapering vessel. A 2-column grid: the
+   funnel track (labels + trapezoids, unchanged) in column 1, and the
+   ליד->הגעה / הגעה->סגירה conversion-rate callouts riding beside their own
+   segment in column 2 -- off to the side instead of overlapping the
+   trapezoid, so they never fight the taper for space or wash out against
+   the gradient underneath. Track items rely on grid auto-placement to land
+   on rows 1–5 in source order; the two side callouts pin themselves to the
+   rows their matching segment lands on (2 and 4). */
 .funnel-shape {
-  max-width: 380px;
+  max-width: 460px;
   margin: 6px auto 10px;
+  display: grid;
+  grid-template-columns: 1fr 78px;
+  column-gap: 12px;
+  align-items: center;
+}
+.funnel-shape > .ftag-row,
+.funnel-shape > .fseg-wrap {
+  grid-column: 1;
 }
 .fseg-wrap {
   position: relative;
@@ -800,32 +815,24 @@ a {
   background: linear-gradient(180deg, var(--ink), var(--pink-deep));
   margin-top: -1px;
 }
-/* the ליד->הגעה / הגעה->סגירה conversion rate, front and center on the
-   funnel itself -- a sibling of .fseg (not a child) so the segment's
-   clip-path trapezoid never crops the pill, even when the segment tapers to
-   a thin sliver at low conversion rates. A solid pill (not text laid
-   directly on the gradient) so contrast never depends on where the segment's
-   gradient happens to land -- plain white text there washed out badly
-   against the lighter end of the gradient. */
-.fseg-pct {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  pointer-events: none;
-  z-index: 1;
-}
-.fseg-pct-pill {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 5px 14px 6px;
-  box-shadow: var(--shadow-sm);
+.fseg-pct-side {
+  grid-column: 2;
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 7px 8px;
+  box-shadow: var(--shadow-sm);
   line-height: 1.15;
+}
+.fseg-pct-side-1 {
+  grid-row: 2;
+}
+.fseg-pct-side-2 {
+  grid-row: 4;
 }
 .fseg-pct-val {
   font-size: 17px;
@@ -833,7 +840,7 @@ a {
   color: var(--ink);
 }
 .fseg-pct-cap {
-  font-size: 10px;
+  font-size: 9.5px;
   font-weight: 700;
   color: var(--muted);
   white-space: nowrap;
