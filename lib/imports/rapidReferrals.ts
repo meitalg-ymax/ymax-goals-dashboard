@@ -74,9 +74,16 @@ export function parseReferralsReport(buffer: Buffer): ParsedReferrals {
 }
 
 export async function applyReferralsImport(supabase: SupabaseClient, month: string, parsed: ParsedReferrals) {
-  const { error } = await supabase
-    .from("rapid_sales_categories")
-    .upsert({ month, category: REFERRALS_LABEL, division: null, amount: parsed.amount }, { onConflict: "month,category" });
+  // synced_at only defaults to now() on INSERT -- an upsert that hits an
+  // existing row (re-uploading the same month) is an UPDATE, which Postgres
+  // does not touch the default for, so it must be set explicitly here or the
+  // "last updated" badge freezes at whenever the row was first created
+  // (confirmed real bug 2026-08-23: Meital re-uploaded but the date shown
+  // in the dashboard didn't move).
+  const { error } = await supabase.from("rapid_sales_categories").upsert(
+    { month, category: REFERRALS_LABEL, division: null, amount: parsed.amount, synced_at: new Date().toISOString() },
+    { onConflict: "month,category" }
+  );
   if (error) throw new Error(`Failed to upsert referrals row: ${error.message}`);
   return { month, amount: parsed.amount };
 }

@@ -42,6 +42,13 @@ export async function POST() {
     const month = currentMonthStart();
 
     const supabase = createServiceClient();
+    // updated_at only defaults to now() on INSERT -- an upsert that hits an
+    // existing row (re-running this every time the button is clicked, for
+    // the same month) is an UPDATE, which Postgres leaves the default alone
+    // for, so it must be set explicitly here or the "last updated" badge
+    // freezes at whenever the row was first created (confirmed real bug
+    // 2026-08-23: budget kept refreshing but the shown date never moved).
+    const nowIso = new Date().toISOString();
     const { error } = await supabase.from("manual_entries").upsert(
       rows.map((r) => ({
         kind: "rapid_actual" as const,
@@ -49,6 +56,7 @@ export async function POST() {
         division: r.division,
         metric: "budget_funded",
         value: r.budgetActual,
+        updated_at: nowIso,
       })),
       { onConflict: "kind,month,division,metric" }
     );

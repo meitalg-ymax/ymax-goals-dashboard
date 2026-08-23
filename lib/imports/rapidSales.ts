@@ -121,12 +121,18 @@ export async function applyRapidSalesImport(supabase: SupabaseClient, parsed: Pa
     byDivision.set(c.division, (byDivision.get(c.division) ?? 0) + c.amount);
   }
 
+  // updated_at only defaults to now() on INSERT -- an upsert hitting an
+  // existing row (re-running this for the same month) is an UPDATE, which
+  // Postgres leaves the default alone for, so it's set explicitly (same bug
+  // class fixed 2026-08-23 in the referrals and budget importers).
+  const nowIso = new Date().toISOString();
   const manualEntryRows = [...byDivision].map(([division, value]) => ({
     kind: "rapid_actual" as const,
     month,
     division,
     metric: "revenue_spa_upgrades",
     value,
+    updated_at: nowIso,
   }));
 
   const { error: upsertError } = await supabase
