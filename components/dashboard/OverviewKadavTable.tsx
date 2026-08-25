@@ -208,9 +208,6 @@ export function OverviewKadavTable({
               <div className="ov-card-head">
                 <span className="ov-dot" style={{ background: DIVISION_COLORS[division] }} />
                 <span className="ov-card-name">{DIVISION_LABELS[division]}</span>
-                {moneyKadav.pct !== null && (
-                  <span className={`chip ${moneyKadav.status ?? ""}`}>{Math.round(moneyKadav.pct)}%</span>
-                )}
               </div>
               <MetricBar label="לידים" result={leadsKadav} />
               <MetricBar label="הגעות" result={arrivalsKadav} />
