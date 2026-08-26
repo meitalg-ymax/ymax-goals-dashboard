@@ -90,7 +90,6 @@ export function DivisionRealCard({
   // Calendar-day pacing, same as budget_funded in DivisionDetailTable -- budget
   // accrues every calendar day, not just workdays.
   const budgetKadav = calcLeadsKadav(budgetActual, budgetTarget || undefined, daysElapsed, daysInMonth);
-  const budgetUtilizationPct = hasBudgetTarget ? (budgetActual / budgetTarget) * 100 : null;
 
   const costPerLeadActual = metrics.leads_funded > 0 ? budgetActual / metrics.leads_funded : null;
   const costPerLeadTarget = targets.cost_per_lead_funded || null;
@@ -122,39 +121,7 @@ export function DivisionRealCard({
             <span className="missing-badge">⏳ חסר יעד</span>
           </div>
         ) : (
-          <div className="stage-block">
-            <p className="stage-title">ניצול תקציב (מתחילת החודש)</p>
-            <div className="stat-row">
-              <div className="stat-box">
-                <span className="stat-label">יעד חודשי</span>
-                <span className="stat-val">{formatCurrency(budgetTarget)}</span>
-              </div>
-              <div className="stat-box">
-                <span className="stat-label">נוצל בפועל</span>
-                <span className="stat-val">{formatCurrency(budgetActual)}</span>
-              </div>
-              <div className={`stat-box pct ${budgetKadav.status ?? ""}`}>
-                <span className="stat-label">קד״ב</span>
-                <span className="stat-val">{formatCurrency(budgetKadav.kadav)}</span>
-              </div>
-              <div
-                className={`stat-box pct ${
-                  budgetUtilizationPct === null
-                    ? ""
-                    : budgetUtilizationPct <= 100
-                      ? "good"
-                      : budgetUtilizationPct <= 110
-                        ? "warn"
-                        : "critical"
-                }`}
-              >
-                <span className="stat-label">אחוז ניצול</span>
-                <span className="stat-val">
-                  {budgetUtilizationPct === null ? "—" : `${Math.round(budgetUtilizationPct)}%`}
-                </span>
-              </div>
-            </div>
-          </div>
+          <StageBlock title={'קד"ב תקציב'} result={budgetKadav} isCurrency />
         )}
         <div className="conv-table">
           <div className="conv-row">

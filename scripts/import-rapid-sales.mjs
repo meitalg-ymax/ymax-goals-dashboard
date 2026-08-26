@@ -29,6 +29,19 @@ const CATEGORY_TO_DIVISION = {
 const PRODUCT_CATEGORIES = ["מוצרים יפה מקסימוב", "מוצרים ותכשירים"];
 const PRODUCTS_LABEL = "מוצרים יפה";
 
+// Kept in sync by hand with classifyBranch in lib/zoho/transform.ts -- this
+// script can't import that TS module directly (no ts-node/tsx in this
+// project), same reason CATEGORY_TO_DIVISION above is a duplicate too.
+function classifyBranch(fieldValue) {
+  const s = (fieldValue ?? "").trim();
+  if (!s) return null;
+  if (s.includes("חיפה")) return "haifa";
+  if (s.includes("רמת") || s.includes('ר"ג') || s.includes("ר״ג")) return "ramat_gan";
+  if (s.includes("ראשל") || s.includes("לישנסקי")) return "rishon";
+  if (s.includes("ירושלים") || s.includes("כנפי נשרים")) return "jerusalem";
+  return null;
+}
+
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
@@ -67,11 +80,16 @@ function parseReport(filePath) {
   const dataRows = rows.slice(3).filter((r) => r.length && r[0] !== "");
 
   const rawTotals = new Map(); // raw קטגוריה -> sum
+  const rawBranchTotals = new Map(); // branch -> sum
   for (const r of dataRows) {
     const category = r[2];
     const total = Number(r[15]) || 0;
     rawTotals.set(category, (rawTotals.get(category) ?? 0) + total);
+
+    const branch = classifyBranch(String(r[0]));
+    if (branch) rawBranchTotals.set(branch, (rawBranchTotals.get(branch) ?? 0) + total);
   }
+  const branchRows = [...rawBranchTotals].map(([branch, amount]) => ({ branch, amount }));
 
   const categoryRows = []; // { category, division, amount }
   const unmapped = [];
@@ -93,7 +111,7 @@ function parseReport(filePath) {
     categoryRows.push({ category: PRODUCTS_LABEL, division: null, amount: productsTotal });
   }
 
-  return { month, categoryRows, unmapped, rowCount: dataRows.length };
+  return { month, categoryRows, unmapped, branchRows, rowCount: dataRows.length };
 }
 
 async function main() {
@@ -109,7 +127,7 @@ async function main() {
     auth: { persistSession: false },
   });
 
-  const { month, categoryRows, unmapped, rowCount } = parseReport(filePath);
+  const { month, categoryRows, unmapped, branchRows, rowCount } = parseReport(filePath);
 
   console.log(`Report month: ${month} (${rowCount} line items)`);
   console.log("Categories:");
@@ -141,18 +159,36 @@ async function main() {
   );
   if (insertError) throw new Error(`Failed to insert category rows: ${insertError.message}`);
 
+  // rapid_sales_by_branch is exclusively owned by this importer (nothing else
+  // writes into it), so a full delete-then-insert for the month is safe.
+  const { error: branchDeleteError } = await supabase.from("rapid_sales_by_branch").delete().eq("month", month);
+  if (branchDeleteError) throw new Error(`Failed to clear old branch rows: ${branchDeleteError.message}`);
+  if (branchRows.length > 0) {
+    const { error: branchInsertError } = await supabase
+      .from("rapid_sales_by_branch")
+      .insert(branchRows.map((b) => ({ month, branch: b.branch, amount: b.amount })));
+    if (branchInsertError) throw new Error(`Failed to insert branch rows: ${branchInsertError.message}`);
+  }
+
   const byDivision = new Map();
   for (const c of categoryRows) {
     if (!c.division) continue;
     byDivision.set(c.division, (byDivision.get(c.division) ?? 0) + c.amount);
   }
 
+  // updated_at only defaults to now() on INSERT -- an upsert hitting an
+  // existing row (re-running this for the same month) is an UPDATE, which
+  // Postgres leaves the default alone for, so it's set explicitly here (same
+  // bug class already fixed 2026-08-23 in the referrals/budget importers'
+  // canonical lib/imports copies -- this standalone script had drifted).
+  const nowIso = new Date().toISOString();
   const manualEntryRows = [...byDivision].map(([division, value]) => ({
     kind: "rapid_actual",
     month,
     division,
     metric: "revenue_spa_upgrades",
     value,
+    updated_at: nowIso,
   }));
 
   const { error: upsertError } = await supabase
@@ -160,11 +196,18 @@ async function main() {
     .upsert(manualEntryRows, { onConflict: "kind,month,division,metric" });
   if (upsertError) throw new Error(`Failed to upsert revenue_spa_upgrades: ${upsertError.message}`);
 
+  console.log(`\nBranch revenue (rapid_sales_by_branch) replaced for ${branchRows.length} branch(es):`);
+  for (const b of branchRows) {
+    console.log(`  ${b.branch.padEnd(12)} ₪${b.amount.toLocaleString()}`);
+  }
+
   console.log("\nrevenue_spa_upgrades (rapid_actual) replaced for:");
   for (const [division, value] of byDivision) {
     console.log(`  ${division.padEnd(10)} ₪${value.toLocaleString()}`);
   }
-  console.log(`\nDone. ${categoryRows.length} category rows, ${manualEntryRows.length} divisions updated.`);
+  console.log(
+    `\nDone. ${categoryRows.length} category rows, ${manualEntryRows.length} divisions updated, ${branchRows.length} branches updated.`
+  );
 }
 
 main().catch((err) => {
