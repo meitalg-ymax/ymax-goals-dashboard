@@ -275,6 +275,45 @@ export function aggregateBranchDivisionClosings(rows: BranchClosingRow[]): Branc
   return out;
 }
 
+// Cross-tab: within each branch, how much of it is per sales rep (יועצת,
+// field1234). Unlike division, rep isn't a fixed enum -- it's an open Zoho
+// picklist -- so rows with no rep set are simply skipped here rather than
+// stored as an "unassigned" bucket; the branch-wide total in
+// zoho_branch_metrics already includes them, so the UI can show the
+// difference (branch total minus the sum of rep rows) as an unassigned
+// residual without this table needing a NULL-like sentinel key.
+export type BranchRepMetricRow = { branch: Branch; rep: string; metric: string; value: number };
+
+export function aggregateBranchRepArrivals(rows: BranchArrivalRow[]): BranchRepMetricRow[] {
+  const out: BranchRepMetricRow[] = [];
+  for (const branch of BRANCHES) {
+    const branchRows = rows.filter((r) => classifyBranch(r.field123456) === branch);
+    const byRep = new Map<string, number>();
+    for (const r of branchRows) {
+      const rep = (r.field1234 ?? "").trim();
+      if (!rep) continue;
+      byRep.set(rep, (byRep.get(rep) ?? 0) + 1);
+    }
+    for (const [rep, value] of byRep) out.push({ branch, rep, metric: "arrivals", value });
+  }
+  return out;
+}
+
+export function aggregateBranchRepClosings(rows: BranchClosingRow[]): BranchRepMetricRow[] {
+  const out: BranchRepMetricRow[] = [];
+  for (const branch of BRANCHES) {
+    const branchRows = rows.filter((r) => classifyBranch(r.field123456) === branch);
+    const byRep = new Map<string, number>();
+    for (const r of branchRows) {
+      const rep = (r.field1234 ?? "").trim();
+      if (!rep) continue;
+      byRep.set(rep, (byRep.get(rep) ?? 0) + 1);
+    }
+    for (const [rep, value] of byRep) out.push({ branch, rep, metric: "closings", value });
+  }
+  return out;
+}
+
 // Mailing leads use Tag (not Created_Time), so they're a separate metric
 // from leads_funded/leads_organic above, division still by Lead_Source text
 // (Tag content isn't a reliable division signal -- e.g. a "לגוף" tag can sit

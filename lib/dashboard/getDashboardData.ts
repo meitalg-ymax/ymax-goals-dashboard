@@ -64,6 +64,11 @@ export type BranchDivisionMetrics = { arrivals: number; closings: number; revenu
 
 const EMPTY_BRANCH_DIVISION_METRICS: BranchDivisionMetrics = { arrivals: 0, closings: 0, revenue: 0 };
 
+// Rep isn't a fixed enum (open Zoho picklist), so this is a plain dynamic
+// map rather than a Record<Branch, Record<Rep, ...>> keyed off a constant
+// list like BranchDivisionMetrics above.
+export type BranchRepMetrics = { arrivals: number; closings: number };
+
 export type DashboardData = {
   hasSyncedData: boolean;
   asOf: string | null;
@@ -82,6 +87,7 @@ export type DashboardData = {
   workDaysInMonth: number;
   branchMetrics: Record<Branch, BranchMetrics>;
   branchDivisionMetrics: Record<Branch, Record<Division, BranchDivisionMetrics>>;
+  branchRepMetrics: Record<Branch, Record<string, BranchRepMetrics>>;
   rapidRevenueByBranch: Record<Branch, number>;
 };
 
@@ -116,6 +122,7 @@ export async function getDashboardData(): Promise<DashboardData> {
     { data: companyTargetRows },
     { data: branchMetricRows },
     { data: branchDivisionMetricRows },
+    { data: branchRepMetricRows },
     { data: rapidBranchRows },
     { data: syncRunRows },
   ] = await Promise.all([
@@ -131,6 +138,7 @@ export async function getDashboardData(): Promise<DashboardData> {
     supabase.from("company_targets").select("metric, value").eq("month", monthStart),
     supabase.from("zoho_branch_metrics").select("branch, metric, value").eq("month", monthStart),
     supabase.from("zoho_branch_division_metrics").select("branch, division, metric, value").eq("month", monthStart),
+    supabase.from("zoho_branch_rep_metrics").select("branch, rep, metric, value").eq("month", monthStart),
     supabase.from("rapid_sales_by_branch").select("branch, amount").eq("month", monthStart),
     supabase
       .from("sync_runs")
@@ -262,6 +270,18 @@ export async function getDashboardData(): Promise<DashboardData> {
     (branchDivisionMetrics[branch][division] as unknown as Record<string, number>)[row.metric] = row.value;
   }
 
+  const branchRepMetrics = Object.fromEntries(BRANCHES.map((b) => [b, {} as Record<string, BranchRepMetrics>])) as Record<
+    Branch,
+    Record<string, BranchRepMetrics>
+  >;
+  for (const row of branchRepMetricRows ?? []) {
+    const branch = row.branch as Branch;
+    if (!branchRepMetrics[branch]) continue;
+    const rep = row.rep as string;
+    if (!branchRepMetrics[branch][rep]) branchRepMetrics[branch][rep] = { arrivals: 0, closings: 0 };
+    (branchRepMetrics[branch][rep] as unknown as Record<string, number>)[row.metric] = row.value;
+  }
+
   const rapidRevenueByBranch = Object.fromEntries(BRANCHES.map((b) => [b, 0])) as Record<Branch, number>;
   for (const row of rapidBranchRows ?? []) {
     const branch = row.branch as Branch;
@@ -298,6 +318,7 @@ export async function getDashboardData(): Promise<DashboardData> {
     workDaysInMonth,
     branchMetrics,
     branchDivisionMetrics,
+    branchRepMetrics,
     rapidRevenueByBranch,
   };
 }

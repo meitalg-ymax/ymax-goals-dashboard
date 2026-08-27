@@ -1,7 +1,7 @@
 import { FunnelShape } from "@/components/dashboard/FunnelShape";
 import { formatCurrency, formatNumber } from "@/lib/metrics/format";
 import { BRANCHES, DIVISIONS, type Branch, type Division } from "@/lib/zoho/transform";
-import type { BranchMetrics, BranchDivisionMetrics } from "@/lib/dashboard/getDashboardData";
+import type { BranchMetrics, BranchDivisionMetrics, BranchRepMetrics } from "@/lib/dashboard/getDashboardData";
 
 const BRANCH_LABELS: Record<Branch, string> = {
   ramat_gan: "רמת גן",
@@ -33,21 +33,38 @@ const DIVISION_COLORS: Record<Division, string> = {
   doctor: "var(--series-doctor)",
 };
 
+function RepInitial({ rep }: { rep: string }) {
+  return <span className="rep-avatar">{rep.trim().charAt(0)}</span>;
+}
+
 function BranchCard({
   branch,
   metrics,
   divisionBreakdown,
+  repBreakdown,
   rapidRevenue,
 }: {
   branch: Branch;
   metrics: BranchMetrics;
   divisionBreakdown: Record<Division, BranchDivisionMetrics>;
+  repBreakdown: Record<string, BranchRepMetrics>;
   rapidRevenue: number;
 }) {
   const avgDeal = metrics.closings > 0 ? metrics.revenue / metrics.closings : 0;
   const activeDivisions = DIVISIONS.filter(
     (d) => divisionBreakdown[d].arrivals > 0 || divisionBreakdown[d].closings > 0
   );
+
+  // Sorted by arrivals (busiest rep first) -- reps are an open picklist, not
+  // a fixed list, so this is computed here rather than iterated from a
+  // constant like DIVISIONS/BRANCHES.
+  const repRows = Object.entries(repBreakdown)
+    .map(([rep, m]) => ({ rep, ...m }))
+    .sort((a, b) => b.arrivals - a.arrivals);
+  const repArrivalsSum = repRows.reduce((s, r) => s + r.arrivals, 0);
+  const repClosingsSum = repRows.reduce((s, r) => s + r.closings, 0);
+  const unassignedArrivals = Math.max(0, metrics.arrivals - repArrivalsSum);
+  const unassignedClosings = Math.max(0, metrics.closings - repClosingsSum);
 
   return (
     <article className="branch-card">
@@ -101,6 +118,33 @@ function BranchCard({
           ))}
         </div>
       )}
+
+      {repRows.length > 0 && (
+        <div className="branch-rep-table">
+          <div className="branch-rep-header">
+            <span>נציגה</span>
+            <span>פגישות</span>
+            <span>סגירות</span>
+            <span>אחוז סגירה</span>
+          </div>
+          {repRows.map((r) => (
+            <div className="branch-rep-row" key={r.rep}>
+              <span className="branch-rep-name">
+                <RepInitial rep={r.rep} />
+                {r.rep}
+              </span>
+              <span>{formatNumber(r.arrivals)}</span>
+              <span>{formatNumber(r.closings)}</span>
+              <span className="rep-rate">{r.arrivals > 0 ? `${Math.round((r.closings / r.arrivals) * 100)}%` : "—"}</span>
+            </div>
+          ))}
+          {(unassignedArrivals > 0 || unassignedClosings > 0) && (
+            <div className="unassigned-row">
+              + {formatNumber(unassignedArrivals)} פגישות / {formatNumber(unassignedClosings)} סגירות ללא נציגה משויכת
+            </div>
+          )}
+        </div>
+      )}
     </article>
   );
 }
@@ -108,10 +152,12 @@ function BranchCard({
 export function BranchTab({
   branchMetrics,
   branchDivisionMetrics,
+  branchRepMetrics,
   rapidRevenueByBranch,
 }: {
   branchMetrics: Record<Branch, BranchMetrics>;
   branchDivisionMetrics: Record<Branch, Record<Division, BranchDivisionMetrics>>;
+  branchRepMetrics: Record<Branch, Record<string, BranchRepMetrics>>;
   rapidRevenueByBranch: Record<Branch, number>;
 }) {
   // Only branches with real activity this month -- so a branch that never
@@ -155,7 +201,9 @@ export function BranchTab({
           שדה הסניף מתמלא רק כשנקבעת פגישה — לכן המשפך כאן מתחיל ב<strong>פגישות מתואמות</strong>, לא בכלל הלידים.
           חלק גדול מהלידים לעולם לא מגיע לשלב הזה, ולכן אין להם סניף בכלל. <strong>לידים לא תקינים</strong> ונתוני{" "}
           <strong>ספה ושדרוגים / ירוקים / תקציב</strong> אינם מחולקים לפי סניף כרגע. <strong>כסף ראפיד</strong> כן
-          מחולק לפי סניף (מדוח SalesReport), אך זה הסה״כ הכללי של הסניף — לא מפוצל לפי חטיבה.
+          מחולק לפי סניף (מדוח SalesReport), אך זה הסה״כ הכללי של הסניף — לא מפוצל לפי חטיבה. פירוט{" "}
+          <strong>לפי נציגה</strong> מבוסס על הגעות בפועל (לא על פגישות מתואמות), כי לרוב עדיין אין נציגה משויכת לליד
+          בשלב היצירה — שורה בסוף הטבלה מציגה כמה הגעות/סגירות עדיין ללא נציגה משויכת.
         </p>
       </div>
 
@@ -194,6 +242,7 @@ export function BranchTab({
             branch={branch}
             metrics={branchMetrics[branch]}
             divisionBreakdown={branchDivisionMetrics[branch]}
+            repBreakdown={branchRepMetrics[branch]}
             rapidRevenue={rapidRevenueByBranch[branch]}
           />
         ))}

@@ -21,6 +21,8 @@ import {
   aggregateBranchClosings,
   aggregateBranchDivisionArrivals,
   aggregateBranchDivisionClosings,
+  aggregateBranchRepArrivals,
+  aggregateBranchRepClosings,
   type MetricRow,
 } from "./transform";
 
@@ -31,6 +33,7 @@ export type SyncResult = {
   reasonsWritten: number;
   branchMetricsWritten: number;
   branchDivisionMetricsWritten: number;
+  branchRepMetricsWritten: number;
 };
 
 export async function runZohoSync(
@@ -48,6 +51,13 @@ export async function runZohoSync(
   if (runError) throw new Error(`Failed to create sync_runs row: ${runError.message}`);
 
   try {
+    // leads_mailing (Tag-based) has no date cutoff -- Zoho doesn't expose
+    // when a tag was applied, only its current live state, so this metric
+    // can't be filtered to "up to yesterday" like every other query here.
+    // To stop it drifting mid-day, it's only fetched/written on the nightly
+    // cron run; an on-demand refresh (the dashboard's "רענון" button) leaves
+    // whatever value the last cron run wrote untouched (confirmed with
+    // Meital 2026-08-25).
     const [
       leadsRows,
       invalidRows,
@@ -62,7 +72,7 @@ export async function runZohoSync(
       fetchInvalidLeadsForMonth(range),
       fetchArrivalsForMonth(range),
       fetchClosingsForMonth(range),
-      fetchMailingLeadsForMonth(range),
+      triggeredBy === "cron" ? fetchMailingLeadsForMonth(range) : Promise.resolve(null),
       fetchBranchMeetingsForMonth(range),
       fetchBranchArrivalsForMonth(range),
       fetchBranchClosingsForMonth(range),
@@ -72,7 +82,7 @@ export async function runZohoSync(
 
     const allMetrics: MetricRow[] = [
       ...aggregateLeads(leadsRows),
-      ...aggregateMailingLeads(mailingLeadsRows),
+      ...(mailingLeadsRows ? aggregateMailingLeads(mailingLeadsRows) : []),
       ...invalidMetrics,
       ...aggregateArrivals(arrivalsRows),
       ...aggregateClosingsAndRevenue(closingsRows),
@@ -155,6 +165,26 @@ export async function runZohoSync(
       throw new Error(`Failed to upsert zoho_branch_division_metrics: ${branchDivisionMetricsError.message}`);
     }
 
+    const branchRepMetrics = [
+      ...aggregateBranchRepArrivals(branchArrivalRows),
+      ...aggregateBranchRepClosings(branchClosingRows),
+    ];
+    const branchRepMetricUpserts = branchRepMetrics.map((m) => ({
+      month: range.monthStartDateStr,
+      branch: m.branch,
+      rep: m.rep,
+      metric: m.metric,
+      value: m.value,
+      as_of: range.yesterdayDateStr,
+      synced_at: new Date().toISOString(),
+    }));
+    const { error: branchRepMetricsError } = await supabase
+      .from("zoho_branch_rep_metrics")
+      .upsert(branchRepMetricUpserts, { onConflict: "month,branch,rep,metric" });
+    if (branchRepMetricsError) {
+      throw new Error(`Failed to upsert zoho_branch_rep_metrics: ${branchRepMetricsError.message}`);
+    }
+
     await supabase
       .from("sync_runs")
       .update({ status: "success", finished_at: new Date().toISOString() })
@@ -167,6 +197,7 @@ export async function runZohoSync(
       reasonsWritten: reasonInserts.length,
       branchMetricsWritten: branchMetricUpserts.length,
       branchDivisionMetricsWritten: branchDivisionMetricUpserts.length,
+      branchRepMetricsWritten: branchRepMetricUpserts.length,
     };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

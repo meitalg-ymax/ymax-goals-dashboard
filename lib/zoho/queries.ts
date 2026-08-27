@@ -158,10 +158,17 @@ export async function fetchBranchMeetingsForMonth(range: MonthRange): Promise<Br
   return runCoqlAll(query) as Promise<BranchMeetingRow[]>;
 }
 
-export type BranchArrivalRow = { id: string; field123456?: string; type?: string; Lead_Status?: string; field13?: string };
+export type BranchArrivalRow = {
+  id: string;
+  field123456?: string;
+  type?: string;
+  Lead_Status?: string;
+  field13?: string;
+  field1234?: string;
+};
 
 export async function fetchBranchArrivalsForMonth(range: MonthRange): Promise<BranchArrivalRow[]> {
-  const query = `select id, field123456, type, Lead_Status, field13 from Leads where ${andAll([
+  const query = `select id, field123456, type, Lead_Status, field13, field1234 from Leads where ${andAll([
     `field123456 is not null`,
     `Lead_Status in ('1לא נסגר','1נסגרה עסקה')`,
     `field13 >= '${range.monthStartDateTimeStr}'`,
@@ -177,10 +184,11 @@ export type BranchClosingRow = {
   Lead_Status?: string;
   field_16?: string;
   field1234567?: number;
+  field1234?: string;
 };
 
 export async function fetchBranchClosingsForMonth(range: MonthRange): Promise<BranchClosingRow[]> {
-  const query = `select id, field123456, type, Lead_Status, field_16, field1234567 from Leads where ${andAll([
+  const query = `select id, field123456, type, Lead_Status, field_16, field1234567, field1234 from Leads where ${andAll([
     `field123456 is not null`,
     `Lead_Status = '1נסגרה עסקה'`,
     `field_16 >= '${range.monthStartDateStr}'`,
