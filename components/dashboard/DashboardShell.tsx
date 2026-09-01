@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Tabbar, type TabDef } from "@/components/tabs/Tabbar";
+import { MonthPicker } from "@/components/forms/MonthPicker";
 import { SignOutButton } from "@/components/SignOutButton";
 import { DivisionRealCard } from "@/components/dashboard/DivisionRealCard";
 import { DivisionDetailTable } from "@/components/dashboard/DivisionDetailTable";
@@ -46,7 +47,7 @@ const DIVISION_SEGMENT: Record<Division, string> = {
   doctor: "הזרקות",
 };
 
-export function DashboardShell({ data }: { data: DashboardData }) {
+export function DashboardShell({ data, month }: { data: DashboardData; month: string }) {
   const [activeGroup, setActiveGroup] = useState("kadav");
   const [activeTab, setActiveTab] = useState("overview");
 
@@ -61,6 +62,7 @@ export function DashboardShell({ data }: { data: DashboardData }) {
           <h1>מעקב יעדים שבועי</h1>
         </div>
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          <MonthPicker month={month} basePath="/" />
           <SignOutButton />
         </div>
       </header>

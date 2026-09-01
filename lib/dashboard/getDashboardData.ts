@@ -108,10 +108,16 @@ const MONTH_NAMES_HE = [
   "דצמבר",
 ];
 
-export async function getDashboardData(): Promise<DashboardData> {
+export async function getDashboardData(month?: string): Promise<DashboardData> {
   const supabase = await createClient();
   const now = new Date();
-  const monthStart = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}-01`;
+  const [reqYear, reqMonthNum] = month
+    ? month.split("-").map(Number)
+    : [now.getUTCFullYear(), now.getUTCMonth() + 1];
+  const monthStart = `${reqYear}-${String(reqMonthNum).padStart(2, "0")}-01`;
+  const isCurrentMonth = reqYear === now.getUTCFullYear() && reqMonthNum === now.getUTCMonth() + 1;
+  const isFutureMonth =
+    reqYear > now.getUTCFullYear() || (reqYear === now.getUTCFullYear() && reqMonthNum > now.getUTCMonth() + 1);
 
   const [
     { data: metricRows },
@@ -190,14 +196,24 @@ export async function getDashboardData(): Promise<DashboardData> {
     rapidActuals[division][row.metric] = row.value;
   }
 
-  const monthDateObj = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-  const daysInMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0)).getUTCDate();
-  const daysElapsed = asOf ? new Date(asOf).getUTCDate() : Math.max(0, now.getUTCDate() - 1);
+  const monthDateObj = new Date(Date.UTC(reqYear, reqMonthNum - 1, 1));
+  const daysInMonth = new Date(Date.UTC(reqYear, reqMonthNum, 0)).getUTCDate();
+  const daysElapsed = asOf
+    ? new Date(asOf).getUTCDate()
+    : isFutureMonth
+      ? 0
+      : isCurrentMonth
+        ? Math.max(0, now.getUTCDate() - 1)
+        : daysInMonth;
 
-  const monthEndObj = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), daysInMonth));
+  const monthEndObj = new Date(Date.UTC(reqYear, reqMonthNum - 1, daysInMonth));
   const elapsedEndObj = asOf
     ? new Date(asOf)
-    : new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), Math.max(1, now.getUTCDate() - 1)));
+    : isFutureMonth
+      ? new Date(Date.UTC(reqYear, reqMonthNum - 1, 1))
+      : isCurrentMonth
+        ? new Date(Date.UTC(reqYear, reqMonthNum - 1, Math.max(1, now.getUTCDate() - 1)))
+        : monthEndObj;
 
   const workDaysInMonth = workDaysBetween(monthDateObj, monthEndObj);
   const workDaysElapsed = workDaysBetween(monthDateObj, elapsedEndObj);
@@ -303,7 +319,7 @@ export async function getDashboardData(): Promise<DashboardData> {
   return {
     hasSyncedData: (metricRows?.length ?? 0) > 0,
     asOf,
-    monthLabel: `${MONTH_NAMES_HE[now.getUTCMonth()]} ${now.getUTCFullYear()}`,
+    monthLabel: `${MONTH_NAMES_HE[reqMonthNum - 1]} ${reqYear}`,
     divisions,
     invalidReasons,
     targets,
