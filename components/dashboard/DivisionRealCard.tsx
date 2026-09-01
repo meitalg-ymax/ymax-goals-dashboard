@@ -271,11 +271,25 @@ export function DivisionRealCard({
           <div className="invalid-tile">
             <div className="invalid-head-row">
               <span className="invalid-big">{formatNumber(metrics.invalid_leads_funded)}</span>
-              <span className="invalid-pct">
-                {((metrics.invalid_leads_funded / metrics.leads_funded) * 100).toFixed(1)}%
-              </span>
+              <div className="invalid-pct-group">
+                <span className="invalid-pct">
+                  {((metrics.invalid_leads_funded / metrics.leads_funded) * 100).toFixed(1)}% מממומן
+                </span>
+                <span className="invalid-pct invalid-pct-total">
+                  {(
+                    (metrics.invalid_leads_funded /
+                      (metrics.leads_funded + metrics.leads_organic + metrics.leads_mailing)) *
+                    100
+                  ).toFixed(1)}
+                  % מסה&quot;כ
+                </span>
+              </div>
             </div>
-            <div className="invalid-of">מתוך {formatNumber(metrics.leads_funded)} ממומן</div>
+            <div className="invalid-of">
+              מתוך {formatNumber(metrics.leads_funded)} ממומן · מתוך{" "}
+              {formatNumber(metrics.leads_funded + metrics.leads_organic + metrics.leads_mailing)} סה&quot;כ לידים
+              (ממומן + אורגני + דיוור)
+            </div>
             {reasons.length > 0 && (
               <div className="reason-list">
                 {reasons.map((r) => (

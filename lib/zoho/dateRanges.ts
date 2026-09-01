@@ -41,6 +41,27 @@ export function currentMonthToYesterday(today: Date): MonthRange {
   };
 }
 
+// The previous calendar month, capped at ITS OWN last day (not "yesterday"
+// relative to `today`). Needed because currentMonthToYesterday always tracks
+// today's month -- once today rolls into a new month, the sync stops calling
+// currentMonthToYesterday for the month that just ended, so that month's
+// stored zoho_metrics row would otherwise stay frozen one day short of the
+// month's actual last day forever (confirmed 2026-09-01: ymax leads_funded
+// for August stuck at as_of=2026-08-30, missing the 31st's ~46 leads).
+export function previousMonthFull(today: Date): MonthRange {
+  const monthDate = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - 1, 1));
+  // Day 0 of `today`'s month == the last day of the previous month.
+  const lastDay = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 0));
+
+  return {
+    monthDate,
+    monthStartDateStr: toDateStr(monthDate),
+    yesterdayDateStr: toDateStr(lastDay),
+    monthStartDateTimeStr: `${toDateStr(monthDate)}T00:00:00${TZ_OFFSET}`,
+    yesterdayEndDateTimeStr: `${toDateStr(lastDay)}T23:59:59${TZ_OFFSET}`,
+  };
+}
+
 // Arbitrary from/to range (both 'YYYY-MM-DD', inclusive) for on-demand
 // reports -- unlike currentMonthToYesterday this doesn't cap at yesterday,
 // since the caller picked an explicit range on purpose (e.g. checking a
