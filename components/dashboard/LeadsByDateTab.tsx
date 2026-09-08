@@ -211,7 +211,7 @@ export function LeadsByDateTab() {
 
           <div>
             <p className="section-label" style={{ marginBottom: 10, marginTop: 24 }}>
-              תיאומים <span style={{ fontWeight: 400, color: "var(--muted)" }}>לידים שנכנסו בטווח ויש להם תאריך התיאום</span>
+              תיאומים <span style={{ fontWeight: 400, color: "var(--muted)" }}>לפי תאריך התיאום, כלל הלידים</span>
             </p>
             <div className="extra-grid">
               <div className="extra-tile total">
@@ -260,8 +260,8 @@ export function LeadsByDateTab() {
             <strong style={{ color: "var(--ink)" }}>חטיבה:</strong> קודם מטקסט מקור הליד עצמו, ואם לא נמצא — נופל
             אחורה לשדה type. <strong style={{ color: "var(--ink)" }}>הסינון</strong> תואם את מסך הפילטר ב-Zoho: type
             לא ריק, והחרגת מקורות הדיוור הידועים.{" "}
-            <strong style={{ color: "var(--ink)" }}>תיאומים:</strong> לידים שנכנסו בטווח הנבחר (Created_Time) ויש להם
-            תאריך התיאום מוגדר (לא משנה מתי) — כלל הלידים, ללא סינון סטטוס, לא נדרש שהליד יגיע בפועל.
+            <strong style={{ color: "var(--ink)" }}>תיאומים:</strong> כלל הלידים (ללא סינון סטטוס), לפי תאריך התיאום
+            בטווח הנבחר — לא נדרש שהליד יגיע בפועל.
           </p>
         </>
       )}

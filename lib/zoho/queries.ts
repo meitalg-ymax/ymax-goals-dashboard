@@ -90,28 +90,26 @@ export async function fetchLeadsForDateRange(fromDateStr: string, toDateStr: str
 export type CoordinationRow = { id: string; Lead_Source?: string; type?: string };
 
 // תיאומים (coordinations/appointments set) for the same "לידים לפי תאריך"
-// on-demand report -- CORRECTED 2026-09-08 (Meital, after reviewing a live
-// count against this exact query): it's leads CREATED in the picked range
-// that HAVE a תאריך התיאום set at all, not leads whose תאריך התיאום itself
-// falls in the range ("צריך להיות לידים שנכנסו בתאריך שאמרנו ויש להם תאריך
-// תיאום") -- field91 is a booking timestamp (when the coordination call
-// happened / the appointment was set), which can land well outside the
-// lead's own creation-month, so filtering ON field91's own value was
-// wrong -- the first version of this function did exactly that bug.
-// No Lead_Status restriction (כלל הלידים) -- unlike arrivals
-// (fetchArrivalsForMonth), which requires Lead_Status in ('1לא נסגר',
-// '1נסגרה עסקה') on field13. This counts every lead from the range that
-// GOT an appointment set, regardless of whether it later showed up, didn't
-// show, or hasn't happened yet.
+// on-demand report -- field91 ("תאריך התיאום") in the picked range, over
+// כלל הלידים with NO Lead_Status restriction. Confirmed with Meital
+// 2026-09-08 via her own Zoho filter panel screenshot: the ONLY active
+// filter is תאריך התיאום between the two dates -- no Created_Time, no
+// status, nothing else. (A same-day detour tried switching this to
+// Created_Time-in-range + field91-is-not-null, which produced 146 for
+// 1-7 Sep 2026 -- Meital confirmed the right number is 292, i.e. this
+// original field91-range version -- so that detour was reverted.)
+// Deliberately unlike arrivals (fetchArrivalsForMonth), which requires
+// Lead_Status in ('1לא נסגר','1נסגרה עסקה') on field13 -- this counts every
+// appointment SET in the range, regardless of whether the lead later showed
+// up, didn't show, or hasn't happened yet.
 export async function fetchCoordinationsForDateRange(
   fromDateStr: string,
   toDateStr: string
 ): Promise<CoordinationRow[]> {
   const { fromDateTimeStr, toDateTimeStr } = customDateTimeRange(fromDateStr, toDateStr);
   const query = `select id, Lead_Source, type from Leads where ${andAll([
-    `Created_Time >= '${fromDateTimeStr}'`,
-    `Created_Time <= '${toDateTimeStr}'`,
-    `field91 is not null`,
+    `field91 >= '${fromDateTimeStr}'`,
+    `field91 <= '${toDateTimeStr}'`,
   ])}`;
   return runCoqlAll(query) as Promise<CoordinationRow[]>;
 }
@@ -153,20 +151,21 @@ export async function fetchArrivalsForMonth(range: MonthRange): Promise<ArrivalR
 }
 
 // תיאומים (coordinations/appointments set) for the monthly קד"ב report --
-// CORRECTED 2026-09-08 (Meital): leads CREATED this month to yesterday that
-// HAVE a תאריך התיאום (field91) set at all -- field91 is a booking
-// timestamp, not the meeting date itself, so it can fall well outside the
-// lead's own creation month; filtering on field91's own value (the first
-// version of this function) was wrong. No Lead_Status restriction (כלל
-// הלידים) -- unlike arrivals (fetchArrivalsForMonth), which requires
-// Lead_Status in ('1לא נסגר','1נסגרה עסקה') on field13. This counts every
-// lead created this month that GOT an appointment set, regardless of
-// whether it later showed up, didn't show, or hasn't happened yet.
+// field91 ("תאריך התיאום"), current month to yesterday, over כלל הלידים
+// with NO Lead_Status restriction. Confirmed with Meital 2026-09-08 via her
+// own Zoho filter panel screenshot: the ONLY active filter is תאריך התיאום
+// between two dates -- no Created_Time, no status, nothing else. (A
+// same-day detour tried Created_Time-in-range + field91-is-not-null instead,
+// which produced 146 for 1-7 Sep 2026 -- Meital confirmed the right number
+// is 292, i.e. this original field91-range version -- so that detour was
+// reverted.) Deliberately unlike arrivals (fetchArrivalsForMonth), which
+// requires Lead_Status in ('1לא נסגר','1נסגרה עסקה') on field13 -- this
+// counts every appointment SET in the range, regardless of whether the lead
+// later showed up, didn't show, or hasn't happened yet.
 export async function fetchCoordinationsForMonth(range: MonthRange): Promise<CoordinationRow[]> {
   const query = `select id, Lead_Source, type from Leads where ${andAll([
-    `Created_Time >= '${range.monthStartDateTimeStr}'`,
-    `Created_Time <= '${range.yesterdayEndDateTimeStr}'`,
-    `field91 is not null`,
+    `field91 >= '${range.monthStartDateTimeStr}'`,
+    `field91 <= '${range.yesterdayEndDateTimeStr}'`,
   ])}`;
   return runCoqlAll(query) as Promise<CoordinationRow[]>;
 }
