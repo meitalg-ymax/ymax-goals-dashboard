@@ -119,16 +119,11 @@ export function DivisionRealCard({
         <p className="section-label" style={{ margin: 0 }}>
           תקציב ועלות ליד
         </p>
-        {!hasBudgetTarget ? (
-          <div className="missing-card">
-            <div className="mc-text">
-              <span className="mc-title">חסר יעד תקציב</span>
-              <span className="mc-sub">אין עדיין יעד תקציב ממומן לחודש זה.</span>
-            </div>
-            <span className="missing-badge">⏳ חסר יעד</span>
-          </div>
-        ) : (
-          <StageBlock title={'קד"ב תקציב'} result={budgetKadav} isCurrency />
+        <StageBlock title={'קד"ב תקציב'} result={budgetKadav} isCurrency />
+        {!hasBudgetTarget && (
+          <p className="note-text" style={{ marginTop: -4 }}>
+            אין עדיין יעד תקציב ממומן לחודש זה — הסכום שלמעלה הוא התקציב בפועל, בלי השוואה ליעד.
+          </p>
         )}
         <div className="conv-table">
           <div className="conv-row">
