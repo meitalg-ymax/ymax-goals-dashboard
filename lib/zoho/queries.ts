@@ -39,12 +39,16 @@ export type LeadRow = { id: string; Lead_Source?: string; type?: string };
 // exactly here, don't try to generalize to "contains דיוור". "דיוור - ymax"
 // added 2026-08-16: found live in Zoho (6 leads that month, word order
 // reversed from the already-excluded "ymax - דיוור") slipping through
-// uncaught and inflating ymax's organic leads count.
+// uncaught and inflating ymax's organic leads count. "נואל" added
+// 2026-09-08 (Meital's correction) -- distinct from "נאל" above, not a typo
+// of it; was slipping through uncaught and inflating ymax's organic count
+// the same way.
 const MAILING_SOURCE_EXCLUSIONS = [
   "דיוור - הזרקות",
   "ymax - דיוור",
   "דיוור - ymax",
   "נאל",
+  "נואל",
   "דיוור וואצאפ",
   "דיוור - גוף",
 ];
