@@ -62,10 +62,31 @@ export function StageBlock({
 export function KadavRow({ result, isCurrency }: { result: KadavResult; isCurrency?: boolean }) {
   const fmt = isCurrency ? formatCurrency : formatNumber;
 
+  // No target to compare against (either a metric with no row in the targets
+  // workbook at all, like תיאומים, or one that's simply not filled in yet
+  // for this month) -- still show the real ביצוע/קד"ב numbers, just without
+  // a יעד/אחוז to compare them to. Previously this hid the actual count
+  // entirely behind a "go fill in a target" badge, which buried real data
+  // (confirmed with Meital 2026-09-08: "תרשום את המספר... גם בלי יעד").
   if (result.pct === null) {
     return (
-      <div className="missing-row">
-        <span className="missing-badge">⏳ חסר יעד — הזיני בהזנת יעדים</span>
+      <div className="stat-row">
+        <div className="stat-box">
+          <span className="stat-label">יעד</span>
+          <span className="stat-val">—</span>
+        </div>
+        <div className="stat-box">
+          <span className="stat-label">ביצוע</span>
+          <span className="stat-val">{fmt(result.actual)}</span>
+        </div>
+        <div className="stat-box">
+          <span className="stat-label">קד&quot;ב</span>
+          <span className="stat-val">{fmt(result.kadav)}</span>
+        </div>
+        <div className="stat-box pct">
+          <span className="stat-label">אחוז קד&quot;ב</span>
+          <span className="stat-val">—</span>
+        </div>
       </div>
     );
   }
