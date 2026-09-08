@@ -9,6 +9,7 @@ import {
   fetchMailingLeadsForMonth,
   fetchBranchMeetingsForMonth,
   fetchBranchArrivalsForMonth,
+  fetchBranchCoordinationsForMonth,
   fetchBranchClosingsForMonth,
 } from "./queries";
 import {
@@ -20,8 +21,10 @@ import {
   aggregateMailingLeads,
   aggregateBranchMeetings,
   aggregateBranchArrivals,
+  aggregateBranchCoordinations,
   aggregateBranchClosings,
   aggregateBranchDivisionArrivals,
+  aggregateBranchDivisionCoordinations,
   aggregateBranchDivisionClosings,
   aggregateBranchRepArrivals,
   aggregateBranchRepClosings,
@@ -109,6 +112,7 @@ async function syncRange(
     mailingLeadsRows,
     branchMeetingRows,
     branchArrivalRows,
+    branchCoordinationRows,
     branchClosingRows,
   ] = await Promise.all([
     fetchLeadsForMonth(range),
@@ -119,6 +123,7 @@ async function syncRange(
     triggeredBy === "cron" ? fetchMailingLeadsForMonth(range) : Promise.resolve(null),
     fetchBranchMeetingsForMonth(range),
     fetchBranchArrivalsForMonth(range),
+    fetchBranchCoordinationsForMonth(range),
     fetchBranchClosingsForMonth(range),
   ]);
 
@@ -173,6 +178,7 @@ async function syncRange(
   const branchMetrics = [
     ...aggregateBranchMeetings(branchMeetingRows),
     ...aggregateBranchArrivals(branchArrivalRows),
+    ...aggregateBranchCoordinations(branchCoordinationRows),
     ...aggregateBranchClosings(branchClosingRows),
   ];
   const branchMetricUpserts = branchMetrics.map((m) => ({
@@ -190,6 +196,7 @@ async function syncRange(
 
   const branchDivisionMetrics = [
     ...aggregateBranchDivisionArrivals(branchArrivalRows),
+    ...aggregateBranchDivisionCoordinations(branchCoordinationRows),
     ...aggregateBranchDivisionClosings(branchClosingRows),
   ];
   const branchDivisionMetricUpserts = branchDivisionMetrics.map((m) => ({

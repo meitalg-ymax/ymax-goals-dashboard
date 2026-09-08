@@ -8,6 +8,7 @@ import type {
   MailingLeadRow,
   BranchMeetingRow,
   BranchArrivalRow,
+  BranchCoordinationRow,
   BranchClosingRow,
 } from "./queries";
 
@@ -253,6 +254,14 @@ export function aggregateBranchArrivals(rows: BranchArrivalRow[]): BranchMetricR
   }));
 }
 
+export function aggregateBranchCoordinations(rows: BranchCoordinationRow[]): BranchMetricRow[] {
+  return BRANCHES.map((branch) => ({
+    branch,
+    metric: "coordinations",
+    value: rows.filter((r) => classifyBranch(r.field123456) === branch).length,
+  }));
+}
+
 export function aggregateBranchClosings(rows: BranchClosingRow[]): BranchMetricRow[] {
   const out: BranchMetricRow[] = [];
   for (const branch of BRANCHES) {
@@ -275,6 +284,18 @@ export function aggregateBranchDivisionArrivals(rows: BranchArrivalRow[]): Branc
     for (const division of DIVISIONS) {
       const value = branchRows.filter((r) => classifyDivisionFromType(r.type) === division).length;
       out.push({ branch, division, metric: "arrivals", value });
+    }
+  }
+  return out;
+}
+
+export function aggregateBranchDivisionCoordinations(rows: BranchCoordinationRow[]): BranchDivisionMetricRow[] {
+  const out: BranchDivisionMetricRow[] = [];
+  for (const branch of BRANCHES) {
+    const branchRows = rows.filter((r) => classifyBranch(r.field123456) === branch);
+    for (const division of DIVISIONS) {
+      const value = branchRows.filter((r) => classifyDivisionFromType(r.type) === division).length;
+      out.push({ branch, division, metric: "coordinations", value });
     }
   }
   return out;

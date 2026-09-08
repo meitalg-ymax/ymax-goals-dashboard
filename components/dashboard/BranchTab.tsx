@@ -54,7 +54,7 @@ function BranchCard({
 }) {
   const avgDeal = metrics.closings > 0 ? metrics.revenue / metrics.closings : 0;
   const activeDivisions = DIVISIONS.filter(
-    (d) => divisionBreakdown[d].arrivals > 0 || divisionBreakdown[d].closings > 0
+    (d) => divisionBreakdown[d].coordinations > 0 || divisionBreakdown[d].arrivals > 0 || divisionBreakdown[d].closings > 0
   );
 
   // Sorted by arrivals (busiest rep first) -- reps are an open picklist, not
@@ -94,6 +94,10 @@ function BranchCard({
 
       <div className="branch-money">
         <div className="money-cell">
+          <span className="mc-label">תיאומים</span>
+          <span className="mc-val">{formatNumber(metrics.coordinations)}</span>
+        </div>
+        <div className="money-cell">
           <span className="mc-label">הכנסות CRM</span>
           <span className="mc-val">{formatCurrency(metrics.revenue)}</span>
         </div>
@@ -111,6 +115,7 @@ function BranchCard({
         <div className="branch-div-table">
           <div className="branch-div-header">
             <span>חטיבה</span>
+            <span>תיאומים</span>
             <span>הגעות</span>
             <span>סגירות</span>
             <span>הכנסות</span>
@@ -121,6 +126,7 @@ function BranchCard({
                 <span className="branch-div-dot" style={{ background: DIVISION_COLORS[d] }} />
                 {DIVISION_LABELS[d]}
               </span>
+              <span>{formatNumber(divisionBreakdown[d].coordinations)}</span>
               <span>{formatNumber(divisionBreakdown[d].arrivals)}</span>
               <span>{formatNumber(divisionBreakdown[d].closings)}</span>
               <span>{formatCurrency(divisionBreakdown[d].revenue)}</span>
@@ -199,12 +205,13 @@ export function BranchTab({
   const totals = activeBranches.reduce(
     (acc, b) => ({
       meetings: acc.meetings + branchMetrics[b].meetings,
+      coordinations: acc.coordinations + branchMetrics[b].coordinations,
       arrivals: acc.arrivals + branchMetrics[b].arrivals,
       closings: acc.closings + branchMetrics[b].closings,
       revenue: acc.revenue + branchMetrics[b].revenue,
       rapidRevenue: acc.rapidRevenue + rapidRevenueByBranch[b],
     }),
-    { meetings: 0, arrivals: 0, closings: 0, revenue: 0, rapidRevenue: 0 }
+    { meetings: 0, coordinations: 0, arrivals: 0, closings: 0, revenue: 0, rapidRevenue: 0 }
   );
   const arrivalsPct = totals.meetings > 0 ? `${((totals.arrivals / totals.meetings) * 100).toFixed(1)}% מהפגישות` : null;
   const closingsPct = totals.arrivals > 0 ? `${((totals.closings / totals.arrivals) * 100).toFixed(1)}% מהמגיעות` : null;
@@ -229,7 +236,10 @@ export function BranchTab({
         <span className="scope-note-icon">ⓘ</span>
         <p>
           שדה הסניף מתמלא רק כשנקבעת פגישה — לכן המשפך כאן מתחיל ב<strong>פגישות מתואמות</strong>, לא בכלל הלידים.
-          חלק גדול מהלידים לעולם לא מגיע לשלב הזה, ולכן אין להם סניף בכלל. <strong>לידים לא תקינים</strong> ונתוני{" "}
+          חלק גדול מהלידים לעולם לא מגיע לשלב הזה, ולכן אין להם סניף בכלל. שימו לב:{" "}
+          <strong>פגישות מתואמות</strong> ו<strong>תיאומים</strong> הם שני מדדים שונים למרות השמות הדומים —{" "}
+          <strong>פגישות מתואמות</strong> סופר לפי מתי הליד נוצר, ו<strong>תיאומים</strong> סופר לפי תאריך התיאום עצמו
+          (אותה הגדרה כמו בכל שאר הדוחות). <strong>לידים לא תקינים</strong> ונתוני{" "}
           <strong>ספה ושדרוגים / ירוקים / תקציב</strong> אינם מחולקים לפי סניף כרגע. <strong>כסף ראפיד</strong> כן
           מחולק לפי סניף (מדוח SalesReport), אך זה הסה״כ הכללי של הסניף — לא מפוצל לפי חטיבה. פירוט{" "}
           <strong>לפי נציגה</strong> מבוסס על הגעות בפועל (לא על פגישות מתואמות), כי לרוב עדיין אין נציגה משויכת לליד
@@ -247,6 +257,10 @@ export function BranchTab({
           <div className="total-tile">
             <span className="tt-label">פגישות מתואמות</span>
             <span className="tt-value">{formatNumber(totals.meetings)}</span>
+          </div>
+          <div className="total-tile">
+            <span className="tt-label">תיאומים</span>
+            <span className="tt-value">{formatNumber(totals.coordinations)}</span>
           </div>
           <div className="total-tile">
             <span className="tt-label">הגעות</span>

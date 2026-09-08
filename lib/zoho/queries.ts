@@ -228,6 +228,22 @@ export async function fetchBranchArrivalsForMonth(range: MonthRange): Promise<Br
   return runCoqlAll(query) as Promise<BranchArrivalRow[]>;
 }
 
+export type BranchCoordinationRow = { id: string; field123456?: string; type?: string; field1234?: string };
+
+// תיאומים by branch -- same field91-range definition confirmed for the
+// division-level coordinations metric (292 for 1-7 Sep 2026, see
+// fetchCoordinationsForMonth), narrowed to leads that also have a branch
+// attached (field123456 is not null -- only true once a meeting is
+// scheduled for the lead, same as every other branch metric here).
+export async function fetchBranchCoordinationsForMonth(range: MonthRange): Promise<BranchCoordinationRow[]> {
+  const query = `select id, field123456, type, field1234 from Leads where ${andAll([
+    `field123456 is not null`,
+    `field91 >= '${range.monthStartDateTimeStr}'`,
+    `field91 <= '${range.yesterdayEndDateTimeStr}'`,
+  ])}`;
+  return runCoqlAll(query) as Promise<BranchCoordinationRow[]>;
+}
+
 export type BranchClosingRow = {
   id: string;
   field123456?: string;

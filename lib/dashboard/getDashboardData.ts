@@ -62,15 +62,16 @@ export type LastUpdated = {
 export type BranchMetrics = {
   meetings: number;
   arrivals: number;
+  coordinations: number;
   closings: number;
   revenue: number;
 };
 
-const EMPTY_BRANCH_METRICS: BranchMetrics = { meetings: 0, arrivals: 0, closings: 0, revenue: 0 };
+const EMPTY_BRANCH_METRICS: BranchMetrics = { meetings: 0, arrivals: 0, coordinations: 0, closings: 0, revenue: 0 };
 
-export type BranchDivisionMetrics = { arrivals: number; closings: number; revenue: number };
+export type BranchDivisionMetrics = { arrivals: number; coordinations: number; closings: number; revenue: number };
 
-const EMPTY_BRANCH_DIVISION_METRICS: BranchDivisionMetrics = { arrivals: 0, closings: 0, revenue: 0 };
+const EMPTY_BRANCH_DIVISION_METRICS: BranchDivisionMetrics = { arrivals: 0, coordinations: 0, closings: 0, revenue: 0 };
 
 // Rep isn't a fixed enum (open Zoho picklist), so this is a plain dynamic
 // map rather than a Record<Branch, Record<Rep, ...>> keyed off a constant
