@@ -46,16 +46,23 @@ export function DivisionRealCard({
 
   const targetLeadsFO = targets.leads_funded + targets.leads_organic;
   const leadsFOKadav = calcLeadsKadav(leadsFO, targetLeadsFO || undefined, daysElapsed, daysInMonth);
+  // תיאומים has no row in the targets workbook -- no target to compare
+  // against, just the paced קד"ב projection, same as every other target-less
+  // metric in this dashboard.
+  const coordinationsFOKadav = calcWorkdayKadav(metrics.coordinations_funded_organic, undefined, workDaysElapsed, workDaysInMonth);
   const arrivalsFOKadav = calcWorkdayKadav(arrivalsFO, targets.arrivals_funded_organic || undefined, workDaysElapsed, workDaysInMonth);
   const closingsFOKadav = calcWorkdayKadav(closingsFO, targets.closings_funded_organic || undefined, workDaysElapsed, workDaysInMonth);
   const revenueFOKadav = calcWorkdayKadav(revenueFO, targets.revenue_funded_organic || undefined, workDaysElapsed, workDaysInMonth);
 
   const leadsMailKadav = calcLeadsKadav(leadsMail, targets.leads_mailing || undefined, daysElapsed, daysInMonth);
+  const coordinationsMailKadav = calcWorkdayKadav(metrics.coordinations_mailing, undefined, workDaysElapsed, workDaysInMonth);
   const arrivalsMailKadav = calcWorkdayKadav(arrivalsMail, targets.arrivals_mailing || undefined, workDaysElapsed, workDaysInMonth);
   const closingsMailKadav = calcWorkdayKadav(closingsMail, targets.closings_mailing || undefined, workDaysElapsed, workDaysInMonth);
   const revenueMailKadav = calcWorkdayKadav(revenueMail, targets.revenue_mailing || undefined, workDaysElapsed, workDaysInMonth);
 
   const totalLeads = leadsFO + leadsMail;
+  const totalCoordinations = metrics.coordinations_funded_organic + metrics.coordinations_mailing;
+  const coordinationsKadav = calcWorkdayKadav(totalCoordinations, undefined, workDaysElapsed, workDaysInMonth);
   const totalArrivals = arrivalsFO + arrivalsMail;
   const totalClosings = closingsFO + closingsMail;
   const totalRevenueCRM = revenueFO + revenueMail;
@@ -145,6 +152,7 @@ export function DivisionRealCard({
         </p>
         <FunnelShape leads={totalLeads} arrivals={totalArrivals} closings={totalClosings} />
         <StageBlock title="לידים" result={leadsKadav} />
+        <StageBlock title="תיאומים" note={`(${pct(totalCoordinations, totalLeads)} מהלידים)`} result={coordinationsKadav} />
         <StageBlock title="הגעות" note={`(${pct(totalArrivals, totalLeads)} מהלידים)`} result={arrivalsKadav} />
         <StageBlock title="סגירות" note={`(${pct(totalClosings, totalArrivals)} מהמגיעות)`} result={closingsKadav} />
         <MoneyOutcome
@@ -169,6 +177,14 @@ export function DivisionRealCard({
             </p>
             <FunnelShape leads={leadsFO} arrivals={arrivalsFO} closings={closingsFO} />
             <StageBlock title="לידים" result={leadsFOKadav} />
+            <StageBlock
+              title="תיאומים"
+              note={`(${pct(metrics.coordinations_funded_organic, leadsFO)} מהלידים)`}
+              result={coordinationsFOKadav}
+            />
+            <p className="money-avg" style={{ margin: "-6px 0 0" }}>
+              מתוך זה: {formatNumber(metrics.coordinations_funded)} ממומן · {formatNumber(metrics.coordinations_organic)} אורגני
+            </p>
             <StageBlock title="הגעות" note={`(${pct(arrivalsFO, leadsFO)} מהלידים)`} result={arrivalsFOKadav} />
             <p className="money-avg" style={{ margin: "-6px 0 0" }}>
               מתוך זה: {formatNumber(metrics.arrivals_funded)} ממומן · {formatNumber(metrics.arrivals_organic)} אורגני
@@ -192,6 +208,11 @@ export function DivisionRealCard({
             </p>
             <FunnelShape leads={leadsMail} arrivals={arrivalsMail} closings={closingsMail} />
             <StageBlock title="לידים" result={leadsMailKadav} />
+            <StageBlock
+              title="תיאומים"
+              note={`(${pct(metrics.coordinations_mailing, leadsMail)} מהלידים)`}
+              result={coordinationsMailKadav}
+            />
             <StageBlock title="הגעות" note={`(${pct(arrivalsMail, leadsMail)} מהלידים)`} result={arrivalsMailKadav} />
             <StageBlock title="סגירות" note={`(${pct(closingsMail, arrivalsMail)} מהמגיעות)`} result={closingsMailKadav} />
             <MoneyOutcome
