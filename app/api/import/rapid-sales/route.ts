@@ -28,6 +28,7 @@ export async function POST(request: Request) {
       rowCount: parsed.rowCount,
       categoriesWritten: result.categoriesWritten,
       divisionsUpdated: result.divisionsUpdated,
+      branchRepsWritten: result.branchRepsWritten,
       unmapped: parsed.unmapped,
     });
   } catch (err) {

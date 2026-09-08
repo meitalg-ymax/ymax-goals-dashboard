@@ -36,11 +36,13 @@ const PRODUCTS_LABEL = "מוצרים יפה";
 
 export type CategoryRow = { category: string; division: Division | null; amount: number };
 export type BranchRevenueRow = { branch: Branch; amount: number };
+export type BranchRepRevenueRow = { branch: Branch; rep: string; amount: number };
 export type ParsedRapidSales = {
   month: string;
   categoryRows: CategoryRow[];
   unmapped: { category: string; amount: number }[];
   branchRows: BranchRevenueRow[];
+  branchRepRows: BranchRepRevenueRow[];
   rowCount: number;
 };
 
@@ -65,15 +67,33 @@ export function parseRapidSalesReport(buffer: Buffer): ParsedRapidSales {
 
   const rawTotals = new Map<string, number>();
   const rawBranchTotals = new Map<Branch, number>();
+  // branch+rep (צוות מכירות, column 12) -- a separate cross-section of the
+  // same report, purely for cross-referencing against zoho_branch_rep_metrics
+  // in the UI. Rows with no rep set aren't attributed to anyone here (mirrors
+  // how zoho_branch_rep_metrics leaves unassigned rows out and lets the UI
+  // derive the "unassigned" remainder instead).
+  const rawBranchRepTotals = new Map<string, number>();
   for (const r of dataRows) {
     const category = String(r[2]);
     const total = Number(r[15]) || 0;
     rawTotals.set(category, (rawTotals.get(category) ?? 0) + total);
 
     const branch = classifyBranch(String(r[0]));
-    if (branch) rawBranchTotals.set(branch, (rawBranchTotals.get(branch) ?? 0) + total);
+    if (branch) {
+      rawBranchTotals.set(branch, (rawBranchTotals.get(branch) ?? 0) + total);
+
+      const rep = String(r[12] ?? "").trim();
+      if (rep) {
+        const key = `${branch}||${rep}`;
+        rawBranchRepTotals.set(key, (rawBranchRepTotals.get(key) ?? 0) + total);
+      }
+    }
   }
   const branchRows: BranchRevenueRow[] = [...rawBranchTotals].map(([branch, amount]) => ({ branch, amount }));
+  const branchRepRows: BranchRepRevenueRow[] = [...rawBranchRepTotals].map(([key, amount]) => {
+    const [branch, rep] = key.split("||") as [Branch, string];
+    return { branch, rep, amount };
+  });
 
   const categoryRows: CategoryRow[] = [];
   const unmapped: { category: string; amount: number }[] = [];
@@ -98,11 +118,11 @@ export function parseRapidSalesReport(buffer: Buffer): ParsedRapidSales {
     categoryRows.push({ category: u.category, division: null, amount: u.amount });
   }
 
-  return { month, categoryRows, unmapped, branchRows, rowCount: dataRows.length };
+  return { month, categoryRows, unmapped, branchRows, branchRepRows, rowCount: dataRows.length };
 }
 
 export async function applyRapidSalesImport(supabase: SupabaseClient, parsed: ParsedRapidSales) {
-  const { month, categoryRows, unmapped, branchRows } = parsed;
+  const { month, categoryRows, unmapped, branchRows, branchRepRows } = parsed;
 
   // Replace this importer's own categories for the month only --
   // rapid_sales_categories also holds rows from the referrals importer,
@@ -135,6 +155,17 @@ export async function applyRapidSalesImport(supabase: SupabaseClient, parsed: Pa
     if (branchInsertError) throw new Error(`Failed to insert branch rows: ${branchInsertError.message}`);
   }
 
+  // rapid_sales_by_branch_rep is exclusively owned by this importer too --
+  // same full delete-then-insert-for-the-month approach as rapid_sales_by_branch.
+  const { error: branchRepDeleteError } = await supabase.from("rapid_sales_by_branch_rep").delete().eq("month", month);
+  if (branchRepDeleteError) throw new Error(`Failed to clear old branch-rep rows: ${branchRepDeleteError.message}`);
+  if (branchRepRows.length > 0) {
+    const { error: branchRepInsertError } = await supabase
+      .from("rapid_sales_by_branch_rep")
+      .insert(branchRepRows.map((b) => ({ month, branch: b.branch, rep: b.rep, amount: b.amount })));
+    if (branchRepInsertError) throw new Error(`Failed to insert branch-rep rows: ${branchRepInsertError.message}`);
+  }
+
   const byDivision = new Map<Division, number>();
   for (const c of categoryRows) {
     if (!c.division) continue;
@@ -160,5 +191,11 @@ export async function applyRapidSalesImport(supabase: SupabaseClient, parsed: Pa
     .upsert(manualEntryRows, { onConflict: "kind,month,division,metric" });
   if (upsertError) throw new Error(`Failed to upsert revenue_spa_upgrades: ${upsertError.message}`);
 
-  return { month, categoriesWritten: categoryRows.length, divisionsUpdated: byDivision.size, branchesWritten: branchRows.length };
+  return {
+    month,
+    categoriesWritten: categoryRows.length,
+    divisionsUpdated: byDivision.size,
+    branchesWritten: branchRows.length,
+    branchRepsWritten: branchRepRows.length,
+  };
 }

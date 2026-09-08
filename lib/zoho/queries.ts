@@ -87,6 +87,29 @@ export async function fetchLeadsForDateRange(fromDateStr: string, toDateStr: str
   return runCoqlAll(query) as Promise<LeadRow[]>;
 }
 
+export type CoordinationRow = { id: string; Lead_Source?: string; type?: string };
+
+// תיאומים (coordinations/appointments set) for the same "לידים לפי תאריך"
+// on-demand report -- field91 ("תאריך התיאום") in the picked range, over
+// כלל הלידים with NO Lead_Status restriction (confirmed with Meital
+// 2026-09-08, matching her own Zoho list-view filter in the screenshot: All
+// Leads view, filtered only by תאריך התיאום). Deliberately unlike arrivals
+// (fetchArrivalsForMonth), which requires Lead_Status in ('1לא נסגר',
+// '1נסגרה עסקה') on field13 -- this counts every appointment SET in the
+// range, regardless of whether the lead later showed up, didn't show, or
+// hasn't happened yet.
+export async function fetchCoordinationsForDateRange(
+  fromDateStr: string,
+  toDateStr: string
+): Promise<CoordinationRow[]> {
+  const { fromDateTimeStr, toDateTimeStr } = customDateTimeRange(fromDateStr, toDateStr);
+  const query = `select id, Lead_Source, type from Leads where ${andAll([
+    `field91 >= '${fromDateTimeStr}'`,
+    `field91 <= '${toDateTimeStr}'`,
+  ])}`;
+  return runCoqlAll(query) as Promise<CoordinationRow[]>;
+}
+
 export type InvalidLeadRow = { id: string; Lead_Source?: string; type?: string; field90?: string };
 
 // The specific "מעקב פניה" (field90) disposition values that count as an
@@ -121,6 +144,23 @@ export async function fetchArrivalsForMonth(range: MonthRange): Promise<ArrivalR
     `field13 <= '${range.yesterdayEndDateTimeStr}'`,
   ])}`;
   return runCoqlAll(query) as Promise<ArrivalRow[]>;
+}
+
+// תיאומים (coordinations/appointments set) for the monthly קד"ב report --
+// field91 ("תאריך התיאום"), current month to yesterday, over כלל הלידים
+// with NO Lead_Status restriction (confirmed with Meital 2026-09-08,
+// matching her own Zoho list-view filter: All Leads, filtered only by
+// תאריך התיאום -- verified against a live count, 297 records for
+// 1-7 Sep 2026). Deliberately unlike arrivals (fetchArrivalsForMonth), which
+// requires Lead_Status in ('1לא נסגר','1נסגרה עסקה') on field13 -- this
+// counts every appointment SET in the range, regardless of whether the lead
+// later showed up, didn't show, or hasn't happened yet.
+export async function fetchCoordinationsForMonth(range: MonthRange): Promise<CoordinationRow[]> {
+  const query = `select id, Lead_Source, type from Leads where ${andAll([
+    `field91 >= '${range.monthStartDateTimeStr}'`,
+    `field91 <= '${range.yesterdayEndDateTimeStr}'`,
+  ])}`;
+  return runCoqlAll(query) as Promise<CoordinationRow[]>;
 }
 
 export type ClosingRow = {

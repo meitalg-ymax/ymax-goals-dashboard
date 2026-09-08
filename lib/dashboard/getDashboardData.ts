@@ -11,6 +11,10 @@ export type DivisionMetrics = {
   arrivals_funded: number;
   arrivals_organic: number;
   arrivals_mailing: number;
+  coordinations_funded_organic: number;
+  coordinations_funded: number;
+  coordinations_organic: number;
+  coordinations_mailing: number;
   closings_funded_organic: number;
   closings_funded: number;
   closings_organic: number;
@@ -30,6 +34,10 @@ const EMPTY_METRICS: DivisionMetrics = {
   arrivals_funded: 0,
   arrivals_organic: 0,
   arrivals_mailing: 0,
+  coordinations_funded_organic: 0,
+  coordinations_funded: 0,
+  coordinations_organic: 0,
+  coordinations_mailing: 0,
   closings_funded_organic: 0,
   closings_funded: 0,
   closings_organic: 0,
@@ -89,6 +97,7 @@ export type DashboardData = {
   branchDivisionMetrics: Record<Branch, Record<Division, BranchDivisionMetrics>>;
   branchRepMetrics: Record<Branch, Record<string, BranchRepMetrics>>;
   rapidRevenueByBranch: Record<Branch, number>;
+  rapidRepRevenueByBranch: Record<Branch, Record<string, number>>;
 };
 
 const REFERRALS_CATEGORY = "ירוקים (הפניות)";
@@ -130,6 +139,7 @@ export async function getDashboardData(month?: string): Promise<DashboardData> {
     { data: branchDivisionMetricRows },
     { data: branchRepMetricRows },
     { data: rapidBranchRows },
+    { data: rapidBranchRepRows },
     { data: syncRunRows },
   ] = await Promise.all([
     supabase.from("zoho_metrics").select("division, metric, value, as_of").eq("month", monthStart),
@@ -146,6 +156,7 @@ export async function getDashboardData(month?: string): Promise<DashboardData> {
     supabase.from("zoho_branch_division_metrics").select("branch, division, metric, value").eq("month", monthStart),
     supabase.from("zoho_branch_rep_metrics").select("branch, rep, metric, value").eq("month", monthStart),
     supabase.from("rapid_sales_by_branch").select("branch, amount").eq("month", monthStart),
+    supabase.from("rapid_sales_by_branch_rep").select("branch, rep, amount").eq("month", monthStart),
     supabase
       .from("sync_runs")
       .select("finished_at")
@@ -304,6 +315,22 @@ export async function getDashboardData(month?: string): Promise<DashboardData> {
     if (branch in rapidRevenueByBranch) rapidRevenueByBranch[branch] = row.amount as number;
   }
 
+  // Rapid revenue by rep (צוות מכירות) -- a separate cross-section of the
+  // same SalesReport import, purely so the branch tab can show it next to
+  // zoho_branch_rep_metrics for the same branch and let the two sources be
+  // compared side by side (rep names come from two different open-text
+  // fields in two different systems, so they aren't reconciled/matched here
+  // -- both lists are just shown as-is).
+  const rapidRepRevenueByBranch = Object.fromEntries(BRANCHES.map((b) => [b, {} as Record<string, number>])) as Record<
+    Branch,
+    Record<string, number>
+  >;
+  for (const row of rapidBranchRepRows ?? []) {
+    const branch = row.branch as Branch;
+    if (!rapidRepRevenueByBranch[branch]) continue;
+    rapidRepRevenueByBranch[branch][row.rep as string] = row.amount as number;
+  }
+
   const maxTimestamp = (timestamps: (string | null | undefined)[]): string | null =>
     timestamps.filter((t): t is string => Boolean(t)).sort().at(-1) ?? null;
 
@@ -336,5 +363,6 @@ export async function getDashboardData(month?: string): Promise<DashboardData> {
     branchDivisionMetrics,
     branchRepMetrics,
     rapidRevenueByBranch,
+    rapidRepRevenueByBranch,
   };
 }

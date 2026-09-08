@@ -43,12 +43,14 @@ function BranchCard({
   divisionBreakdown,
   repBreakdown,
   rapidRevenue,
+  rapidRepBreakdown,
 }: {
   branch: Branch;
   metrics: BranchMetrics;
   divisionBreakdown: Record<Division, BranchDivisionMetrics>;
   repBreakdown: Record<string, BranchRepMetrics>;
   rapidRevenue: number;
+  rapidRepBreakdown: Record<string, number>;
 }) {
   const avgDeal = metrics.closings > 0 ? metrics.revenue / metrics.closings : 0;
   const activeDivisions = DIVISIONS.filter(
@@ -65,6 +67,14 @@ function BranchCard({
   const repClosingsSum = repRows.reduce((s, r) => s + r.closings, 0);
   const unassignedArrivals = Math.max(0, metrics.arrivals - repArrivalsSum);
   const unassignedClosings = Math.max(0, metrics.closings - repClosingsSum);
+
+  // Rapid's "צוות מכירות" column is a different open-text field than Zoho's
+  // rep picklist (full name vs. first name, different spellings) -- shown as
+  // its own list rather than merged/matched into repRows above, so the two
+  // sources can be compared side by side without guessing at name matches.
+  const rapidRepRows = Object.entries(rapidRepBreakdown)
+    .map(([rep, amount]) => ({ rep, amount }))
+    .sort((a, b) => b.amount - a.amount);
 
   return (
     <article className="branch-card">
@@ -145,6 +155,24 @@ function BranchCard({
           )}
         </div>
       )}
+
+      {rapidRepRows.length > 0 && (
+        <div className="branch-rep-table branch-rep-table-rapid">
+          <div className="branch-rep-header">
+            <span>יועצת (רפיד)</span>
+            <span>כסף ראפיד</span>
+          </div>
+          {rapidRepRows.map((r) => (
+            <div className="branch-rep-row" key={r.rep}>
+              <span className="branch-rep-name">
+                <RepInitial rep={r.rep} />
+                {r.rep}
+              </span>
+              <span>{formatCurrency(r.amount)}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </article>
   );
 }
@@ -154,11 +182,13 @@ export function BranchTab({
   branchDivisionMetrics,
   branchRepMetrics,
   rapidRevenueByBranch,
+  rapidRepRevenueByBranch,
 }: {
   branchMetrics: Record<Branch, BranchMetrics>;
   branchDivisionMetrics: Record<Branch, Record<Division, BranchDivisionMetrics>>;
   branchRepMetrics: Record<Branch, Record<string, BranchRepMetrics>>;
   rapidRevenueByBranch: Record<Branch, number>;
+  rapidRepRevenueByBranch: Record<Branch, Record<string, number>>;
 }) {
   // Only branches with real activity this month -- so a branch that never
   // shows up in the field (e.g. חיפה, present in Zoho's picklist but unused
@@ -203,7 +233,11 @@ export function BranchTab({
           <strong>ספה ושדרוגים / ירוקים / תקציב</strong> אינם מחולקים לפי סניף כרגע. <strong>כסף ראפיד</strong> כן
           מחולק לפי סניף (מדוח SalesReport), אך זה הסה״כ הכללי של הסניף — לא מפוצל לפי חטיבה. פירוט{" "}
           <strong>לפי נציגה</strong> מבוסס על הגעות בפועל (לא על פגישות מתואמות), כי לרוב עדיין אין נציגה משויכת לליד
-          בשלב היצירה — שורה בסוף הטבלה מציגה כמה הגעות/סגירות עדיין ללא נציגה משויכת.
+          בשלב היצירה — שורה בסוף הטבלה מציגה כמה הגעות/סגירות עדיין ללא נציגה משויכת. מתחת לזה מופיע גם פירוט{" "}
+          <strong>כסף ראפיד לפי יועצת</strong> (מעמודת &quot;צוות מכירות&quot; בדוח SalesReport) — שם היועצת בזוהו
+          ובראפיד מגיע משני שדות טקסט חופשי שונים (שם פרטי מול שם מלא, לפעמים איות שונה), אז הרשימות מוצגות זו לצד זו
+          בלי ניסיון להתאים ביניהן אוטומטית, ובד״כ הסכום ברפיד גבוה יותר כי הוא כולל גם ספה/מוצרים/שדרוגים שלא עוברים
+          דרך ליד בזוהו.
         </p>
       </div>
 
@@ -244,6 +278,7 @@ export function BranchTab({
             divisionBreakdown={branchDivisionMetrics[branch]}
             repBreakdown={branchRepMetrics[branch]}
             rapidRevenue={rapidRevenueByBranch[branch]}
+            rapidRepBreakdown={rapidRepRevenueByBranch[branch]}
           />
         ))}
       </section>

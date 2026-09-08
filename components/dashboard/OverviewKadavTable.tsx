@@ -117,6 +117,7 @@ export function OverviewKadavTable({
     grandLeadsTarget = 0,
     grandArrivalsActual = 0,
     grandArrivalsTarget = 0,
+    grandCoordinationsActual = 0,
     grandClosingsActual = 0,
     grandClosingsTarget = 0,
     grandMoneyActual = 0,
@@ -135,6 +136,11 @@ export function OverviewKadavTable({
     const arrivalsTarget = (t.arrivals_funded_organic ?? 0) + (t.arrivals_mailing ?? 0);
     const arrivalsKadav = calcWorkdayKadav(arrivalsActual, arrivalsTarget || undefined, workDaysElapsed, workDaysInMonth);
 
+    // תיאומים has no row in the targets workbook -- no target to compare
+    // against, just the paced קד"ב projection of what's actually been set.
+    const coordinationsActual = m.coordinations_funded_organic + m.coordinations_mailing;
+    const coordinationsKadav = calcWorkdayKadav(coordinationsActual, undefined, workDaysElapsed, workDaysInMonth);
+
     const closingsActual = m.closings_funded_organic + m.closings_mailing;
     const closingsTarget = (t.closings_funded_organic ?? 0) + (t.closings_mailing ?? 0);
     const closingsKadav = calcWorkdayKadav(closingsActual, closingsTarget || undefined, workDaysElapsed, workDaysInMonth);
@@ -151,13 +157,14 @@ export function OverviewKadavTable({
     grandLeadsTarget += leadsTarget;
     grandArrivalsActual += arrivalsActual;
     grandArrivalsTarget += arrivalsTarget;
+    grandCoordinationsActual += coordinationsActual;
     grandClosingsActual += closingsActual;
     grandClosingsTarget += closingsTarget;
     grandMoneyActual += moneyActual;
     grandMoneyTarget += moneyTarget;
     referralsTargetTotal += t.revenue_referrals ?? 0;
 
-    return { division: d, leadsKadav, arrivalsKadav, closingsKadav, moneyKadav };
+    return { division: d, leadsKadav, arrivalsKadav, coordinationsKadav, closingsKadav, moneyKadav };
   });
 
   const productsTarget = companyTargets.revenue_products ?? 0;
@@ -181,6 +188,7 @@ export function OverviewKadavTable({
 
   const grandLeadsKadav = calcLeadsKadav(grandLeadsActual, grandLeadsTarget || undefined, daysElapsed, daysInMonth);
   const grandArrivalsKadav = calcWorkdayKadav(grandArrivalsActual, grandArrivalsTarget || undefined, workDaysElapsed, workDaysInMonth);
+  const grandCoordinationsKadav = calcWorkdayKadav(grandCoordinationsActual, undefined, workDaysElapsed, workDaysInMonth);
   const grandClosingsKadav = calcWorkdayKadav(grandClosingsActual, grandClosingsTarget || undefined, workDaysElapsed, workDaysInMonth);
   const grandMoneyKadav = calcWorkdayKadav(grandMoneyActual, grandMoneyTarget || undefined, workDaysElapsed, workDaysInMonth);
 
@@ -193,6 +201,7 @@ export function OverviewKadavTable({
         <div className="extra-grid">
           <HeroTile label="סה״כ לידים" result={grandLeadsKadav} />
           <HeroTile label="סה״כ הגעות" result={grandArrivalsKadav} />
+          <HeroTile label="סה״כ תיאומים" result={grandCoordinationsKadav} />
           <HeroTile label="סה״כ סגירות" result={grandClosingsKadav} />
           <HeroTile label="סה״כ כסף (כולל מוצרים וירוקים)" result={grandMoneyKadav} isCurrency total />
         </div>
@@ -203,7 +212,7 @@ export function OverviewKadavTable({
           מבט כללי — לפי חטיבה
         </p>
         <div className="ov-grid">
-          {rows.map(({ division, leadsKadav, arrivalsKadav, closingsKadav, moneyKadav }) => (
+          {rows.map(({ division, leadsKadav, arrivalsKadav, coordinationsKadav, closingsKadav, moneyKadav }) => (
             <div className="ov-card" key={division}>
               <div className="ov-card-head">
                 <span className="ov-dot" style={{ background: DIVISION_COLORS[division] }} />
@@ -211,6 +220,7 @@ export function OverviewKadavTable({
               </div>
               <MetricBar label="לידים" result={leadsKadav} />
               <MetricBar label="הגעות" result={arrivalsKadav} />
+              <MetricBar label="תיאומים" result={coordinationsKadav} />
               <MetricBar label="סגירות" result={closingsKadav} />
               <MetricBar label="כסף" result={moneyKadav} isCurrency />
             </div>

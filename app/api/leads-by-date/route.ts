@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { fetchLeadsForDateRange, type LeadRow } from "@/lib/zoho/queries";
+import { fetchLeadsForDateRange, fetchCoordinationsForDateRange, type LeadRow } from "@/lib/zoho/queries";
 import { classifyPaidOrganic, classifyDivisionFromSource, DIVISIONS, type Division } from "@/lib/zoho/transform";
 
 // Live on-demand report for the "לידים לפי תאריך" tab -- runs its own Zoho
@@ -54,11 +54,27 @@ export async function GET(request: Request) {
   }
 
   try {
-    const rows = await fetchLeadsForDateRange(from, to);
+    const [rows, coordinationRows] = await Promise.all([
+      fetchLeadsForDateRange(from, to),
+      fetchCoordinationsForDateRange(from, to),
+    ]);
     const funded = groupByTypeAndDivision(rows, "paid");
     const organic = groupByTypeAndDivision(rows, "organic");
+    const coordinationsFunded = groupByTypeAndDivision(coordinationRows, "paid");
+    const coordinationsOrganic = groupByTypeAndDivision(coordinationRows, "organic");
 
-    return NextResponse.json({ from, to, total: rows.length, funded, organic });
+    return NextResponse.json({
+      from,
+      to,
+      total: rows.length,
+      funded,
+      organic,
+      coordinations: {
+        total: coordinationRows.length,
+        funded: coordinationsFunded,
+        organic: coordinationsOrganic,
+      },
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return NextResponse.json({ error: message }, { status: 500 });

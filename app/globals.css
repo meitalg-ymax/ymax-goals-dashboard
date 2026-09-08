@@ -793,6 +793,10 @@ a {
   text-align: center;
   padding-top: 6px;
 }
+.branch-rep-table-rapid .branch-rep-header,
+.branch-rep-table-rapid .branch-rep-row {
+  grid-template-columns: 1.4fr 1fr;
+}
 
 .legacy-label {
   display: flex;

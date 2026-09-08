@@ -3,6 +3,7 @@ import type {
   LeadRow,
   InvalidLeadRow,
   ArrivalRow,
+  CoordinationRow,
   ClosingRow,
   MailingLeadRow,
   BranchMeetingRow,
@@ -162,6 +163,28 @@ export function aggregateArrivals(rows: ArrivalRow[]): MetricRow[] {
     out.push({ division, metric: "arrivals_funded", value: funded.length });
     out.push({ division, metric: "arrivals_organic", value: organic.length });
     out.push({ division, metric: "arrivals_mailing", value: mailing.length });
+  }
+  return out;
+}
+
+// תיאומים (coordinations/appointments set) -- same shape/classification as
+// arrivals (division by `type`, funded/organic/mailing split by Lead_Source),
+// just over a different row set: fetchCoordinationsForMonth has no
+// Lead_Status filter, so this counts every appointment SET in the range, not
+// just the ones that resulted in a completed meeting.
+export function aggregateCoordinations(rows: CoordinationRow[]): MetricRow[] {
+  const out: MetricRow[] = [];
+  for (const division of DIVISIONS) {
+    const divisionRows = rows.filter((r) => classifyDivisionFromType(r.type) === division);
+    const mailing = divisionRows.filter((r) => isMailingSource(r.Lead_Source));
+    const fundedOrganic = divisionRows.filter((r) => !isMailingSource(r.Lead_Source));
+    const funded = fundedOrganic.filter((r) => classifyPaidOrganic(r.Lead_Source) === "paid");
+    const organic = fundedOrganic.filter((r) => classifyPaidOrganic(r.Lead_Source) === "organic");
+
+    out.push({ division, metric: "coordinations_funded_organic", value: fundedOrganic.length });
+    out.push({ division, metric: "coordinations_funded", value: funded.length });
+    out.push({ division, metric: "coordinations_organic", value: organic.length });
+    out.push({ division, metric: "coordinations_mailing", value: mailing.length });
   }
   return out;
 }

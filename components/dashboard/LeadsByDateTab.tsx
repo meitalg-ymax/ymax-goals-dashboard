@@ -23,7 +23,15 @@ const DIVISION_COLORS: Record<Division, string> = {
 type SourceCount = { source: string; count: number };
 type DivisionGroup = { division: Division | null; total: number; sources: SourceCount[] };
 type TypeGroup = { total: number; divisions: DivisionGroup[] };
-type ApiResponse = { from: string; to: string; total: number; funded: TypeGroup; organic: TypeGroup };
+type CoordinationsGroup = { total: number; funded: TypeGroup; organic: TypeGroup };
+type ApiResponse = {
+  from: string;
+  to: string;
+  total: number;
+  funded: TypeGroup;
+  organic: TypeGroup;
+  coordinations: CoordinationsGroup;
+};
 
 function todayStr(): string {
   return new Date().toISOString().slice(0, 10);
@@ -201,12 +209,59 @@ export function LeadsByDateTab() {
             note="שיוך לפי type (המקור עצמו כמעט אף פעם לא מזכיר חטיבה)"
           />
 
+          <div>
+            <p className="section-label" style={{ marginBottom: 10, marginTop: 24 }}>
+              תיאומים <span style={{ fontWeight: 400, color: "var(--muted)" }}>לפי תאריך התיאום, כלל הלידים</span>
+            </p>
+            <div className="extra-grid">
+              <div className="extra-tile total">
+                <span className="et-label">סה״כ תיאומים</span>
+                <span className="et-value">{formatNumber(data.coordinations.total)}</span>
+              </div>
+              <div className="extra-tile">
+                <span className="et-label">ממומן</span>
+                <span className="et-value">{formatNumber(data.coordinations.funded.total)}</span>
+                <span className="et-note">
+                  {data.coordinations.total > 0
+                    ? `${((data.coordinations.funded.total / data.coordinations.total) * 100).toFixed(1)}% מהסה״כ`
+                    : ""}
+                </span>
+              </div>
+              <div className="extra-tile">
+                <span className="et-label">אורגני</span>
+                <span className="et-value" style={{ color: "var(--pink-deep)" }}>
+                  {formatNumber(data.coordinations.organic.total)}
+                </span>
+                <span className="et-note">
+                  {data.coordinations.total > 0
+                    ? `${((data.coordinations.organic.total / data.coordinations.total) * 100).toFixed(1)}% מהסה״כ`
+                    : ""}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <TypeSection
+            title="ממומן"
+            badgeClass="funded"
+            group={data.coordinations.funded}
+            note="שיוך תמיד לפי טקסט מקור הליד"
+          />
+          <TypeSection
+            title="אורגני"
+            badgeClass="organic"
+            group={data.coordinations.organic}
+            note="שיוך לפי type (המקור עצמו כמעט אף פעם לא מזכיר חטיבה)"
+          />
+
           <p className="real-note">
             <strong style={{ color: "var(--ink)" }}>שיטת השיוך:</strong> ממומן/אורגני תמיד לפי טקסט מקור הליד (מכיל
             &quot;marketism&quot; = ממומן, חוץ מ-&quot;ig_linktree&quot; שגובר וחוזר לאורגני).{" "}
             <strong style={{ color: "var(--ink)" }}>חטיבה:</strong> קודם מטקסט מקור הליד עצמו, ואם לא נמצא — נופל
             אחורה לשדה type. <strong style={{ color: "var(--ink)" }}>הסינון</strong> תואם את מסך הפילטר ב-Zoho: type
-            לא ריק, והחרגת מקורות הדיוור הידועים.
+            לא ריק, והחרגת מקורות הדיוור הידועים.{" "}
+            <strong style={{ color: "var(--ink)" }}>תיאומים:</strong> כלל הלידים (ללא סינון סטטוס), לפי תאריך התיאום
+            בטווח הנבחר — לא נדרש שהליד יגיע בפועל.
           </p>
         </>
       )}
