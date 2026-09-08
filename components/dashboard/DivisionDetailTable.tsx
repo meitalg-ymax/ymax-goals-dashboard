@@ -146,6 +146,12 @@ export function DivisionDetailTable({
       <PacedRow label="לידים אורגני" result={calendar(metrics.leads_organic, t("leads_organic"))} />
       <PlainRow label="לידים לא תקינים (ממומן)" value={metrics.invalid_leads_funded} />
       <PacedRow
+        label="תיאומים ממומן+אורגני"
+        result={workday(metrics.coordinations_funded_organic, t("coordinations_funded_organic"))}
+      />
+      <PlainRow label="↳ מתוך זה ממומן" value={metrics.coordinations_funded} />
+      <PlainRow label="↳ מתוך זה אורגני" value={metrics.coordinations_organic} />
+      <PacedRow
         label="הגעות ממומן+אורגני"
         result={workday(metrics.arrivals_funded_organic, t("arrivals_funded_organic"))}
         bold
@@ -176,6 +182,7 @@ export function DivisionDetailTable({
 
       <SectionHeader label="דיוור" />
       <PacedRow label="לידים דיוור" result={calendar(metrics.leads_mailing, t("leads_mailing"))} bold />
+      <PacedRow label="תיאומים דיוור" result={workday(metrics.coordinations_mailing, t("coordinations_mailing"))} />
       <PacedRow label="הגעות דיוור" result={workday(metrics.arrivals_mailing, t("arrivals_mailing"))} />
       <RatioRow label="% המרה ליד→הגעה (דיוור)" target={t("conversion_lead_arrival_mailing")} actual={convLeadArrivalMail} />
       <PacedRow label="סגירות דיוור" result={workday(metrics.closings_mailing, t("closings_mailing"))} />
