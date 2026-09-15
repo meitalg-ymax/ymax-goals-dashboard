@@ -7,11 +7,13 @@ const REFERRALS_CATEGORY = "ירוקים (הפניות)";
 // Fixed categorical order + colors, validated for CVD separation
 // (scripts/validate_palette.js "#5e4a8a,#c9548c,#c9a55c,#3468a8,#3f9e6d" --mode light -> all pass).
 // Never reuse status colors (good/warn/critical) here -- this is identity, not state.
-// ירוקים (referrals) IS its own slice (added back 2026-08-16) -- ymax's own
-// spaUpgradesActual now has referrals subtracted out (see getDashboardData.ts,
-// confirmed with Meital), so referrals is no longer mixed into the ospa
-// ושדרוגים slice below -- it's genuinely separate money now, same treatment
-// as "מוצרים".
+// ירוקים (referrals) IS its own slice (added back 2026-08-16). It's a
+// separate Rapid category with no division (division=null), so it was never
+// part of any division's rapidTotal/spaUpgradesActual to begin with -- no
+// subtraction needed anywhere to keep this a clean, non-double-counted slice,
+// same treatment as "מוצרים" (fixed 2026-09-15: a prior version subtracted
+// referrals from ymax's spaUpgradesActual too, which silently undercounted
+// this pie's total by exactly the referrals amount).
 const SLICES = [
   { key: "fo", label: "ממומן + אורגני", color: "#5e4a8a" },
   { key: "mailing", label: "דיוור", color: "#c9548c" },

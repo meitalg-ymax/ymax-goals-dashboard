@@ -83,6 +83,7 @@ export function DivisionDetailTable({
   targets,
   rapidActuals,
   spaUpgradesActual,
+  referralsActual,
   daysElapsed,
   daysInMonth,
   workDaysElapsed,
@@ -92,6 +93,7 @@ export function DivisionDetailTable({
   targets: Record<string, number>;
   rapidActuals: Record<string, number>;
   spaUpgradesActual: number;
+  referralsActual?: number | null;
   daysElapsed: number;
   daysInMonth: number;
   workDaysElapsed: number;
@@ -128,7 +130,7 @@ export function DivisionDetailTable({
   const totalMoneyTarget = t("revenue_funded_organic") + t("revenue_mailing") + t("revenue_spa_upgrades");
 
   return (
-    <div className="real-table">
+    <div className="real-table real-table-wide">
       <div className="real-row head" style={{ gridTemplateColumns: COLS }}>
         <span>מדד</span>
         <span>יעד</span>
@@ -196,7 +198,11 @@ export function DivisionDetailTable({
 
       <SectionHeader label="הכנסות נוספות" />
       <PacedRow label="ספה ושדרוגים" result={workday(spaActual, t("revenue_spa_upgrades"))} isCurrency />
-      <UnsplitRow label="ירוקים (הפניות)" target={t("revenue_referrals")} isCurrency />
+      {referralsActual != null ? (
+        <PacedRow label="ירוקים (הפניות)" result={workday(referralsActual, t("revenue_referrals"))} isCurrency />
+      ) : (
+        <UnsplitRow label="ירוקים (הפניות)" target={t("revenue_referrals")} isCurrency />
+      )}
 
       <div style={{ borderTop: "2px solid var(--border)", marginTop: 4, paddingTop: 4 }}>
         <PacedRow label="סה״כ כסף ראפיד" result={workday(totalMoneyActual, totalMoneyTarget)} isCurrency bold />

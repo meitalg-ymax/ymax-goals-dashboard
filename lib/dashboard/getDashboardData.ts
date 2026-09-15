@@ -88,6 +88,7 @@ export type DashboardData = {
   rapidActuals: Record<Division, Record<string, number>>;
   rapidCategories: RapidCategory[];
   spaUpgradesActual: Record<Division, number>;
+  referralsActual: number;
   companyTargets: Record<string, number>;
   lastUpdated: LastUpdated;
   daysElapsed: number;
@@ -240,6 +241,14 @@ export async function getDashboardData(month?: string): Promise<DashboardData> {
     }))
     .sort((a, b) => b.amount - a.amount);
 
+  // ירוקים (referrals) has no division column in its own Rapid report, but
+  // Meital's own tracking attributes the entire company-wide figure to ymax
+  // specifically -- exposed here so the ymax tab can show its real actual
+  // (not just a target placeholder) instead of redirecting to the overview.
+  const referralsActual = rapidCategories
+    .filter((c) => c.division === null && c.category === REFERRALS_CATEGORY)
+    .reduce((s, c) => s + c.amount, 0);
+
   // ספה ושדרוגים actual -- NOT the raw Rapid category total for a division.
   // Rapid POS records EVERY payment collected (CRM-tracked deals, walk-in
   // upsells alike), so the raw category total for e.g. ymax already INCLUDES
@@ -350,6 +359,7 @@ export async function getDashboardData(month?: string): Promise<DashboardData> {
     rapidActuals,
     rapidCategories,
     spaUpgradesActual,
+    referralsActual,
     companyTargets,
     lastUpdated,
     daysElapsed,

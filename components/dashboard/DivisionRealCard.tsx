@@ -16,6 +16,7 @@ export function DivisionRealCard({
   targets,
   rapidActuals,
   spaUpgradesActual,
+  referralsActual,
   daysElapsed,
   daysInMonth,
   workDaysElapsed,
@@ -27,6 +28,7 @@ export function DivisionRealCard({
   targets: Record<string, number>;
   rapidActuals: Record<string, number>;
   spaUpgradesActual: number;
+  referralsActual?: number | null;
   daysElapsed: number;
   daysInMonth: number;
   workDaysElapsed: number;
@@ -85,8 +87,19 @@ export function DivisionRealCard({
   const spaActual = spaUpgradesActual;
   const spaKadav = calcWorkdayKadav(spaActual, targets.revenue_spa_upgrades || undefined, workDaysElapsed, workDaysInMonth);
 
-  // ירוקים excluded -- already embedded in spaActual's underlying Rapid total
-  // wherever it landed, not separately attributable to this division.
+  // ירוקים (referrals) has no division column of its own in Rapid -- only
+  // passed in as a real actual for the one division Meital's own tracking
+  // attributes it to (ymax); every other division gets `null` here and falls
+  // back to the target-only placeholder. Excluded from totalMoneyActual below
+  // either way -- "סה״כ כסף ראפיד" is explicitly the ex-referrals total.
+  const hasReferralsActual = referralsActual != null;
+  const referralsKadav = calcWorkdayKadav(
+    referralsActual ?? 0,
+    targets.revenue_referrals || undefined,
+    workDaysElapsed,
+    workDaysInMonth
+  );
+
   const totalMoneyActual = totalRevenueCRM + spaActual;
   const totalMoneyTarget = targets.revenue_funded_organic + targets.revenue_mailing + targets.revenue_spa_upgrades;
   const totalMoneyKadav = calcWorkdayKadav(totalMoneyActual, totalMoneyTarget || undefined, workDaysElapsed, workDaysInMonth);
@@ -247,8 +260,33 @@ export function DivisionRealCard({
           </div>
           <div className="extra-tile">
             <span className="et-label">ירוקים (הפניות)</span>
-            <span className="et-value">{formatCurrency(targets.revenue_referrals ?? 0)}</span>
-            <span className="et-note">יעד בלבד — מדווח כלל-חברתי, לא מחולק לפי חטיבה (ר&apos; מבט כללי)</span>
+            {hasReferralsActual ? (
+              <>
+                <span className="et-value" style={{ color: referralsKadav.status === "good" ? "var(--good)" : "var(--ink)" }}>
+                  {formatCurrency(referralsActual!)}
+                </span>
+                <div className="mini-stat-row">
+                  <div className="mini-stat">
+                    <div className="ms-label">יעד</div>
+                    <div className="ms-val">{formatCurrency(targets.revenue_referrals ?? 0)}</div>
+                  </div>
+                  <div className="mini-stat">
+                    <div className="ms-label">קד״ב</div>
+                    <div className="ms-val">{formatCurrency(referralsKadav.kadav)}</div>
+                  </div>
+                  <div className={`mini-stat pct ${referralsKadav.status ?? ""}`}>
+                    <div className="ms-label">אחוז</div>
+                    <div className="ms-val">{referralsKadav.pct !== null ? `${Math.round(referralsKadav.pct)}%` : "—"}</div>
+                  </div>
+                </div>
+                <span className="et-note">מדווח כלל-חברתי בראפיד, משויך במלואו לחטיבה זו</span>
+              </>
+            ) : (
+              <>
+                <span className="et-value">{formatCurrency(targets.revenue_referrals ?? 0)}</span>
+                <span className="et-note">יעד בלבד — מדווח כלל-חברתי, לא מחולק לפי חטיבה (ר&apos; מבט כללי)</span>
+              </>
+            )}
           </div>
           <div className="extra-tile total">
             <span className="et-label">סה״כ כסף (החטיבה, ללא ירוקים)</span>

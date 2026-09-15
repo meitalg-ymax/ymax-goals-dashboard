@@ -139,6 +139,7 @@ export function DashboardShell({ data, month }: { data: DashboardData; month: st
                   targets={data.targets[division]}
                   rapidActuals={data.rapidActuals[division]}
                   spaUpgradesActual={data.spaUpgradesActual[division]}
+                  referralsActual={division === "ymax" ? data.referralsActual : null}
                   daysElapsed={data.daysElapsed}
                   daysInMonth={data.daysInMonth}
                   workDaysElapsed={data.workDaysElapsed}
@@ -157,6 +158,7 @@ export function DashboardShell({ data, month }: { data: DashboardData; month: st
                     targets={data.targets[division]}
                     rapidActuals={data.rapidActuals[division]}
                     spaUpgradesActual={data.spaUpgradesActual[division]}
+                    referralsActual={division === "ymax" ? data.referralsActual : null}
                     daysElapsed={data.daysElapsed}
                     daysInMonth={data.daysInMonth}
                     workDaysElapsed={data.workDaysElapsed}
