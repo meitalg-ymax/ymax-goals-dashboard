@@ -240,31 +240,27 @@ export async function getDashboardData(month?: string): Promise<DashboardData> {
     }))
     .sort((a, b) => b.amount - a.amount);
 
-  const referralsTotal = rapidCategories
-    .filter((c) => c.division === null && c.category === REFERRALS_CATEGORY)
-    .reduce((s, c) => s + c.amount, 0);
-
   // ספה ושדרוגים actual -- NOT the raw Rapid category total for a division.
-  // Rapid POS records EVERY payment collected (CRM-tracked deals, referral
-  // clients, walk-in upsells alike), so the raw category total for e.g. ymax
-  // already INCLUDES whatever Zoho separately recorded as revenue_funded_organic
-  // /revenue_mailing for the same underlying payments. Adding both would
-  // double-count real money (confirmed with Meital 2026-08-16, who does this
-  // subtraction herself: "כסף ראפיד זה הסך הכל הכללי... צריך להוריד ממנו
-  // ירוקים והכנסות של הזוהו... כדי לקבל ספה ושדרוגים"). The residual --
-  // Rapid's total minus what Zoho already explains -- is the real ספה
-  // ושדרוגים figure. ירוקים (referrals) has no division breakdown in Rapid
-  // itself, but Meital's own tracking attributes the ENTIRE company-wide
-  // referrals figure to ymax specifically (confirmed 2026-08-16, matching
-  // her live tracking sheet exactly) -- every other division's Rapid total
-  // has no referrals mixed in, so only ymax subtracts it.
+  // Rapid POS records EVERY payment collected (CRM-tracked deals, walk-in
+  // upsells alike), so the raw category total for e.g. ymax already INCLUDES
+  // whatever Zoho separately recorded as revenue_funded_organic/revenue_mailing
+  // for the same underlying payments. Adding both would double-count real
+  // money. The residual -- Rapid's total minus what Zoho already explains --
+  // is the real ספה ושדרוגים figure. ירוקים (referrals) is its own separate
+  // Rapid category with no division (division=null), so it's never part of
+  // any division's `rapidTotal` filter below to begin with -- it must NOT be
+  // subtracted again here (a prior version subtracted the company-wide
+  // referrals total from ymax specifically, which silently erased ₪91,600 of
+  // real ymax money that was never double-counted in the first place --
+  // caught and fixed 2026-09-15 after Meital flagged ymax's total not matching
+  // its two raw category rows: 774,374.99 + 7,450 should net to 781,824.99,
+  // not 690,224.99).
   const spaUpgradesActual = Object.fromEntries(
     DIVISIONS.map((d) => {
       const rapidTotal = rapidCategories.filter((c) => c.division === d).reduce((s, c) => s + c.amount, 0);
       if (rapidTotal > 0) {
         const zohoRevenue = divisions[d].revenue_funded_organic + divisions[d].revenue_mailing;
-        const referralsDeduction = d === "ymax" ? referralsTotal : 0;
-        return [d, rapidTotal - zohoRevenue - referralsDeduction];
+        return [d, rapidTotal - zohoRevenue];
       }
       // No Rapid import yet for this division/month -- fall back to a
       // manually-entered ספה ושדרוגים actual (already assumed net, not a raw
