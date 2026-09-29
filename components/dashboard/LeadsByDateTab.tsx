@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { type Division } from "@/lib/zoho/transform";
+import { DIVISIONS, type Division } from "@/lib/zoho/transform";
 import { formatNumber } from "@/lib/metrics/format";
+import { TagBreakdownTable } from "@/components/dashboard/TagBreakdownTable";
+import type { MailingTagBreakdown } from "@/lib/dashboard/getDashboardData";
 
 const DIVISION_LABELS: Record<Division, string> = {
   ymax: "ymax",
@@ -24,12 +26,17 @@ type SourceCount = { source: string; count: number };
 type DivisionGroup = { division: Division | null; total: number; sources: SourceCount[] };
 type TypeGroup = { total: number; divisions: DivisionGroup[] };
 type CoordinationsGroup = { total: number; funded: TypeGroup; organic: TypeGroup };
+type ReasonCount = { reason: string; count: number };
+type InvalidDivisionGroup = { division: Division; total: number; reasons: ReasonCount[] };
+type InvalidGroup = { total: number; divisions: InvalidDivisionGroup[] };
+type InvalidSummary = { funded: InvalidGroup; organic: InvalidGroup };
 type ApiResponse = {
   from: string;
   to: string;
   total: number;
   funded: TypeGroup;
   organic: TypeGroup;
+  invalid: InvalidSummary;
   coordinations: CoordinationsGroup;
 };
 
@@ -89,7 +96,124 @@ function TypeSection({ title, badgeClass, group, note }: { title: string; badgeC
   );
 }
 
-export function LeadsByDateTab() {
+function InvalidGroupGrid({ group }: { group: InvalidGroup }) {
+  if (group.divisions.length === 0) {
+    return (
+      <div className="missing-card">
+        <div className="mc-text">
+          <span className="mc-title">אין לידים לא תקינים בטווח זה</span>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="division-grid">
+      {group.divisions.map((g) => (
+        <div className="division-card" key={g.division}>
+          <div className="division-head">
+            <span className="division-dot" style={{ background: DIVISION_COLORS[g.division] }} />
+            <span className="division-name">{DIVISION_LABELS[g.division]}</span>
+            <span className="division-total">{formatNumber(g.total)}</span>
+          </div>
+          {g.reasons.map((r) => (
+            <div className="source-row" key={r.reason}>
+              <span className="s-name">{r.reason}</span>
+              <span className="s-count">{formatNumber(r.count)}</span>
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function InvalidLeadsSection({ invalid }: { invalid: InvalidSummary }) {
+  return (
+    <div>
+      <p className="section-label" style={{ marginBottom: 10, marginTop: 24 }}>
+        לידים לא תקינים
+      </p>
+
+      <div className="type-section">
+        <div className="type-head">
+          <span className="type-badge funded">ממומן</span>
+          <span className="type-total">{formatNumber(invalid.funded.total)} לא תקינים</span>
+        </div>
+        <InvalidGroupGrid group={invalid.funded} />
+      </div>
+
+      <div className="type-section">
+        <div className="type-head">
+          <span className="type-badge organic">אורגני</span>
+          <span className="type-total">{formatNumber(invalid.organic.total)} לא תקינים</span>
+        </div>
+        <InvalidGroupGrid group={invalid.organic} />
+      </div>
+
+      <p className="real-note" style={{ marginTop: 10 }}>
+        שדה &quot;מעקב פניה&quot; מתעדכן ע&quot;י הנציגות תוך כדי טיפול בליד, לא ביצירתו — לידים מהיום-יומיים
+        האחרונים בטווח עשויים להציג מספר לא תקינים נמוך מהאמיתי כי הטיפול בהם עוד לא הושלם.{" "}
+        <strong style={{ color: "var(--ink)" }}>אורגני:</strong> מוצג לצד הממומן לבקשתך, אבל לא נכלל ב-
+        &quot;invalid_leads_funded&quot; הרשמי בשאר הדשבורד (זה נשאר ממומן-בלבד).
+      </p>
+    </div>
+  );
+}
+
+const DIVISION_LABELS_MAILING: Record<Division, string> = {
+  ymax: "ymax",
+  body: "body",
+  tech: "tech",
+  mira_dry: "mira dry",
+  doctor: "doctor",
+};
+
+function MailingTagsSection({
+  mailingTags,
+  monthLabel,
+}: {
+  mailingTags: Record<Division, MailingTagBreakdown[]>;
+  monthLabel: string;
+}) {
+  const activeDivisions = DIVISIONS.filter((d) => mailingTags[d].length > 0);
+
+  return (
+    <div>
+      <p className="section-label" style={{ marginBottom: 10 }}>
+        דיוורים לפי תגית <span style={{ fontWeight: 400, color: "var(--muted)" }}>{monthLabel}</span>
+      </p>
+      {activeDivisions.length === 0 ? (
+        <div className="missing-card">
+          <div className="mc-text">
+            <span className="mc-title">אין עדיין נתוני דיוור לחודש זה</span>
+            <span className="mc-sub">מתעדכן פעם ביום מה-Tag ב-Zoho, לפי חודש נוכחי.</span>
+          </div>
+        </div>
+      ) : (
+        activeDivisions.map((d) => (
+          <div className="real-card" key={d} style={{ marginBottom: 12 }}>
+            <p className="section-label" style={{ margin: "0 0 4px" }}>
+              {DIVISION_LABELS_MAILING[d]}
+            </p>
+            <TagBreakdownTable rows={mailingTags[d]} />
+          </div>
+        ))
+      )}
+      <p className="real-note">
+        מבוסס על שדה Tag ב-Zoho (חודש נוכחי, כל תגית = קבוצת שליחה) ומתעדכן פעם ביום בסנכרון הלילי — לא מושפע
+        מטווח התאריכים שנבחר למטה.
+      </p>
+    </div>
+  );
+}
+
+export function LeadsByDateTab({
+  mailingTags,
+  monthLabel,
+}: {
+  mailingTags: Record<Division, MailingTagBreakdown[]>;
+  monthLabel: string;
+}) {
   const [from, setFrom] = useState(monthStartStr());
   const [to, setTo] = useState(todayStr());
   const [singleDay, setSingleDay] = useState(false);
@@ -126,6 +250,8 @@ export function LeadsByDateTab() {
 
   return (
     <div className="tabpanel">
+      <MailingTagsSection mailingTags={mailingTags} monthLabel={monthLabel} />
+
       <div className="real-card range-card">
         <div className="range-field">
           <label>{singleDay ? "תאריך" : "מתאריך"}</label>
@@ -208,6 +334,8 @@ export function LeadsByDateTab() {
             group={data.organic}
             note="שיוך לפי type (המקור עצמו כמעט אף פעם לא מזכיר חטיבה)"
           />
+
+          <InvalidLeadsSection invalid={data.invalid} />
 
           <div>
             <p className="section-label" style={{ marginBottom: 10, marginTop: 24 }}>

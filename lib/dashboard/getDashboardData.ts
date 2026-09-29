@@ -50,6 +50,15 @@ const EMPTY_METRICS: DivisionMetrics = {
 
 export type InvalidReason = { reason: string; count: number };
 
+export type MailingTagBreakdown = {
+  tag: string;
+  leads: number;
+  coordinations: number;
+  arrivals: number;
+  closings: number;
+  revenue: number;
+};
+
 export type RapidCategory = { category: string; division: Division | null; amount: number };
 
 export type LastUpdated = {
@@ -84,6 +93,7 @@ export type DashboardData = {
   monthLabel: string;
   divisions: Record<Division, DivisionMetrics>;
   invalidReasons: Record<Division, InvalidReason[]>;
+  mailingTags: Record<Division, MailingTagBreakdown[]>;
   targets: Record<Division, Record<string, number>>;
   rapidActuals: Record<Division, Record<string, number>>;
   rapidCategories: RapidCategory[];
@@ -133,6 +143,7 @@ export async function getDashboardData(month?: string): Promise<DashboardData> {
   const [
     { data: metricRows },
     { data: reasonRows },
+    { data: mailingTagRows },
     { data: targetRows },
     { data: rapidRows },
     { data: categoryRows },
@@ -146,6 +157,7 @@ export async function getDashboardData(month?: string): Promise<DashboardData> {
   ] = await Promise.all([
     supabase.from("zoho_metrics").select("division, metric, value, as_of").eq("month", monthStart),
     supabase.from("zoho_invalid_lead_reasons").select("division, reason, count").eq("month", monthStart),
+    supabase.from("zoho_mailing_tags").select("division, tag, metric, value").eq("month", monthStart),
     supabase.from("manual_entries").select("division, metric, value").eq("kind", "target").eq("month", monthStart),
     supabase
       .from("manual_entries")
@@ -190,6 +202,24 @@ export async function getDashboardData(month?: string): Promise<DashboardData> {
   for (const division of DIVISIONS) {
     invalidReasons[division].sort((a, b) => b.count - a.count);
   }
+
+  const mailingTagMap = Object.fromEntries(
+    DIVISIONS.map((d) => [d, new Map<string, MailingTagBreakdown>()])
+  ) as Record<Division, Map<string, MailingTagBreakdown>>;
+  for (const row of mailingTagRows ?? []) {
+    const division = row.division as Division;
+    if (!mailingTagMap[division]) continue;
+    const tag = row.tag as string;
+    let entry = mailingTagMap[division].get(tag);
+    if (!entry) {
+      entry = { tag, leads: 0, coordinations: 0, arrivals: 0, closings: 0, revenue: 0 };
+      mailingTagMap[division].set(tag, entry);
+    }
+    (entry as unknown as Record<string, number>)[row.metric] = row.value;
+  }
+  const mailingTags = Object.fromEntries(
+    DIVISIONS.map((d) => [d, Array.from(mailingTagMap[d].values()).sort((a, b) => b.leads - a.leads)])
+  ) as Record<Division, MailingTagBreakdown[]>;
 
   const targets = Object.fromEntries(
     DIVISIONS.map((d) => [d, {} as Record<string, number>])
@@ -355,6 +385,7 @@ export async function getDashboardData(month?: string): Promise<DashboardData> {
     monthLabel: `${MONTH_NAMES_HE[reqMonthNum - 1]} ${reqYear}`,
     divisions,
     invalidReasons,
+    mailingTags,
     targets,
     rapidActuals,
     rapidCategories,

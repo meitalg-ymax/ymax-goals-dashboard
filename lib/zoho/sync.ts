@@ -19,6 +19,7 @@ import {
   aggregateCoordinations,
   aggregateClosingsAndRevenue,
   aggregateMailingLeads,
+  aggregateMailingLeadsByTag,
   aggregateBranchMeetings,
   aggregateBranchArrivals,
   aggregateBranchCoordinations,
@@ -35,6 +36,7 @@ export type SyncResult = {
   monthStartDateStr: string;
   yesterdayDateStr: string;
   metricsWritten: number;
+  mailingTagsWritten: number;
   reasonsWritten: number;
   branchMetricsWritten: number;
   branchDivisionMetricsWritten: number;
@@ -152,6 +154,38 @@ async function syncRange(
     .upsert(metricUpserts, { onConflict: "month,division,metric" });
   if (metricsError) throw new Error(`Failed to upsert zoho_metrics: ${metricsError.message}`);
 
+  // Per-tag mailing breakdown -- same cron-only guard as leads_mailing above
+  // (mailingLeadsRows is null on an on-demand refresh, since Tag has no date
+  // cutoff and would drift mid-day). On a non-cron run this table is simply
+  // left untouched, same as the leads_mailing metric itself.
+  let mailingTagsWritten = 0;
+  if (mailingLeadsRows) {
+    const tagMetrics = aggregateMailingLeadsByTag(mailingLeadsRows);
+
+    const { error: deleteTagsError } = await supabase
+      .from("zoho_mailing_tags")
+      .delete()
+      .eq("month", range.monthStartDateStr);
+    if (deleteTagsError) {
+      throw new Error(`Failed to clear old zoho_mailing_tags: ${deleteTagsError.message}`);
+    }
+
+    const tagInserts = tagMetrics.map((m) => ({
+      month: range.monthStartDateStr,
+      division: m.division,
+      tag: m.tag,
+      metric: m.metric,
+      value: m.value,
+      synced_at: new Date().toISOString(),
+    }));
+
+    if (tagInserts.length > 0) {
+      const { error: tagsError } = await supabase.from("zoho_mailing_tags").insert(tagInserts);
+      if (tagsError) throw new Error(`Failed to insert zoho_mailing_tags: ${tagsError.message}`);
+    }
+    mailingTagsWritten = tagInserts.length;
+  }
+
   // Reasons can change month to month (a reason can disappear entirely),
   // so replace the whole month+division set rather than upserting piecemeal.
   const { error: deleteReasonsError } = await supabase
@@ -239,6 +273,7 @@ async function syncRange(
     monthStartDateStr: range.monthStartDateStr,
     yesterdayDateStr: range.yesterdayDateStr,
     metricsWritten: metricUpserts.length,
+    mailingTagsWritten,
     reasonsWritten: reasonInserts.length,
     branchMetricsWritten: branchMetricUpserts.length,
     branchDivisionMetricsWritten: branchDivisionMetricUpserts.length,

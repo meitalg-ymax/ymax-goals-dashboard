@@ -163,6 +163,7 @@ export function DashboardShell({ data, month }: { data: DashboardData; month: st
                     daysInMonth={data.daysInMonth}
                     workDaysElapsed={data.workDaysElapsed}
                     workDaysInMonth={data.workDaysInMonth}
+                    mailingTags={data.mailingTags[division]}
                   />
                   <p className="real-note">
                     מתחשב הכל אוטומטית מ-Zoho וראפיד, חוץ מ<strong style={{ color: "var(--ink)" }}>תקציב ממומן בפועל</strong>{" "}
@@ -174,7 +175,7 @@ export function DashboardShell({ data, month }: { data: DashboardData; month: st
             )
         )}
 
-      {activeGroup === "leads" && <LeadsByDateTab />}
+      {activeGroup === "leads" && <LeadsByDateTab mailingTags={data.mailingTags} monthLabel={data.monthLabel} />}
 
       {activeGroup === "branches" && (
         <BranchTab

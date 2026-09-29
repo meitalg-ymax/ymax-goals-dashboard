@@ -370,3 +370,57 @@ export function aggregateMailingLeads(rows: MailingLeadRow[]): MetricRow[] {
   }
   return out;
 }
+
+// Per-tag breakdown of the same mailing leads (confirmed 2026-09-28): each
+// Tag value is a numbered WhatsApp send-batch name + month (e.g.
+// "8 התפספסנו ספטמבר 26"), a finer dimension than the leads_mailing/
+// coordinations_mailing/... division totals above. Every lead observed so
+// far carries exactly one tag, but this fans a lead out across all of its
+// tags in case that ever changes. Same field semantics as every other
+// funnel metric in this file (field91 not null = תיאום set, Lead_Status in
+// ('1לא נסגר','1נסגרה עסקה') = הגעה, Lead_Status='1נסגרה עסקה' = סגירה,
+// field1234567 summed over closed rows = revenue) -- just grouped by
+// (division, tag) instead of by month-range alone.
+export type MailingTagMetricRow = { division: Division; tag: string; metric: string; value: number };
+
+export function aggregateMailingLeadsByTag(rows: MailingLeadRow[]): MailingTagMetricRow[] {
+  const acc = new Map<
+    string,
+    { division: Division; tag: string; leads: number; coordinations: number; arrivals: number; closings: number; revenue: number }
+  >();
+
+  for (const row of rows) {
+    const division = classifyDivisionFromSource(row.Lead_Source, row.type);
+    if (!division) continue;
+    const hasCoordination = Boolean(row.field91);
+    const isArrival = row.Lead_Status === "1לא נסגר" || row.Lead_Status === "1נסגרה עסקה";
+    const isClosing = row.Lead_Status === "1נסגרה עסקה";
+    const tags = row.tags.length > 0 ? row.tags : ["(ללא תגית)"];
+
+    for (const tag of tags) {
+      const key = `${division} ${tag}`;
+      let entry = acc.get(key);
+      if (!entry) {
+        entry = { division, tag, leads: 0, coordinations: 0, arrivals: 0, closings: 0, revenue: 0 };
+        acc.set(key, entry);
+      }
+      entry.leads += 1;
+      if (hasCoordination) entry.coordinations += 1;
+      if (isArrival) entry.arrivals += 1;
+      if (isClosing) {
+        entry.closings += 1;
+        entry.revenue += row.field1234567 ?? 0;
+      }
+    }
+  }
+
+  const out: MailingTagMetricRow[] = [];
+  for (const { division, tag, leads, coordinations, arrivals, closings, revenue } of acc.values()) {
+    out.push({ division, tag, metric: "leads", value: leads });
+    out.push({ division, tag, metric: "coordinations", value: coordinations });
+    out.push({ division, tag, metric: "arrivals", value: arrivals });
+    out.push({ division, tag, metric: "closings", value: closings });
+    out.push({ division, tag, metric: "revenue", value: revenue });
+  }
+  return out;
+}

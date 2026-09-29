@@ -137,6 +137,23 @@ export async function fetchInvalidLeadsForMonth(range: MonthRange): Promise<Inva
   return runCoqlAll(query) as Promise<InvalidLeadRow[]>;
 }
 
+// On-demand version of the above for the "לידים לפי תאריך" tab -- unlike
+// fetchInvalidLeadsForMonth this deliberately does NOT restrict to marketism
+// (ממומן) leads: Meital wants to see field90 disposition on אורגני leads too
+// here, even though that's not part of the official "invalid_leads_funded"
+// metric used elsewhere on the dashboard. The caller splits paid/organic
+// itself via classifyPaidOrganic on the returned rows.
+export async function fetchInvalidLeadsForDateRange(fromDateStr: string, toDateStr: string): Promise<InvalidLeadRow[]> {
+  const { fromDateTimeStr, toDateTimeStr } = customDateTimeRange(fromDateStr, toDateStr);
+  const reasonList = INVALID_LEAD_REASONS.map((r) => `'${r}'`).join(",");
+  const query = `select id, Lead_Source, type, field90 from Leads where ${andAll([
+    `Created_Time >= '${fromDateTimeStr}'`,
+    `Created_Time <= '${toDateTimeStr}'`,
+    `field90 in (${reasonList})`,
+  ])}`;
+  return runCoqlAll(query) as Promise<InvalidLeadRow[]>;
+}
+
 export type ArrivalRow = { id: string; Lead_Source?: string; type?: string; Lead_Status?: string; field13?: string };
 
 // Arrivals: either final outcome (not-closed or closed) counts as "showed up",
@@ -264,12 +281,52 @@ export async function fetchBranchClosingsForMonth(range: MonthRange): Promise<Br
   return runCoqlAll(query) as Promise<BranchClosingRow[]>;
 }
 
-export type MailingLeadRow = { id: string; Lead_Source?: string; type?: string; Tag?: unknown };
+export type MailingLeadRow = {
+  id: string;
+  Lead_Source?: string;
+  type?: string;
+  tags: string[];
+  Lead_Status?: string;
+  field91?: string;
+  field1234567?: number;
+};
+
+// Raw COQL shape before Tag parsing -- Zoho's native multiselect tag field
+// (ui_type 209) returns Tag as an array of {name,id,color_code} objects, not
+// a plain string (confirmed 2026-09-28 via getFields + a live query).
+type RawMailingLeadRow = {
+  id: string;
+  Lead_Source?: string;
+  type?: string;
+  Tag?: unknown;
+  Lead_Status?: string;
+  field91?: string;
+  field1234567?: number;
+};
+
+function extractTagNames(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((t) => (typeof t === "string" ? t : (t as { name?: string } | null)?.name))
+    .filter((n): n is string => Boolean(n));
+}
 
 // Mailing leads: Tag contains "<Hebrew month> <YY>" for the CURRENT month --
 // these can have any Created_Time (a recurring mailing list, not new leads).
+// Also pulls Lead_Status/field91/field1234567 so callers can build a
+// per-tag funnel (leads/תיאומים/הגעות/סגירות/הכנסה), not just a lead count --
+// see aggregateMailingLeadsByTag in transform.ts.
 export async function fetchMailingLeadsForMonth(range: MonthRange): Promise<MailingLeadRow[]> {
   const tag = hebrewMonthYearTag(range.monthDate);
-  const query = `select id, Lead_Source, type, Tag from Leads where Tag like '%${tag}%'`;
-  return runCoqlAll(query) as Promise<MailingLeadRow[]>;
+  const query = `select id, Lead_Source, type, Tag, Lead_Status, field91, field1234567 from Leads where Tag like '%${tag}%'`;
+  const rows = (await runCoqlAll(query)) as RawMailingLeadRow[];
+  return rows.map((r) => ({
+    id: r.id,
+    Lead_Source: r.Lead_Source,
+    type: r.type,
+    tags: extractTagNames(r.Tag),
+    Lead_Status: r.Lead_Status,
+    field91: r.field91,
+    field1234567: r.field1234567,
+  }));
 }

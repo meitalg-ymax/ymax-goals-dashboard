@@ -1,6 +1,7 @@
-import type { DivisionMetrics } from "@/lib/dashboard/getDashboardData";
+import type { DivisionMetrics, MailingTagBreakdown } from "@/lib/dashboard/getDashboardData";
 import { calcKadav, type KadavResult } from "@/lib/metrics/pacing";
 import { formatCurrency, formatNumber } from "@/lib/metrics/format";
+import { TagBreakdownTable } from "@/components/dashboard/TagBreakdownTable";
 
 const COLS = "1.6fr 1fr 1fr 1fr 1fr";
 
@@ -88,6 +89,7 @@ export function DivisionDetailTable({
   daysInMonth,
   workDaysElapsed,
   workDaysInMonth,
+  mailingTags,
 }: {
   metrics: DivisionMetrics;
   targets: Record<string, number>;
@@ -98,6 +100,7 @@ export function DivisionDetailTable({
   daysInMonth: number;
   workDaysElapsed: number;
   workDaysInMonth: number;
+  mailingTags?: MailingTagBreakdown[];
 }) {
   const t = (key: string) => targets[key] ?? 0;
   const calendar = (actual: number, target: number) => calcKadav(actual, target || undefined, daysElapsed, daysInMonth);
@@ -195,6 +198,7 @@ export function DivisionDetailTable({
       />
       <PacedRow label="כסף דיוור" result={workday(metrics.revenue_mailing, t("revenue_mailing"))} isCurrency />
       <RatioRow label="שווי עסקה ממוצע (דיוור)" target={t("avg_deal_value_mailing")} actual={avgDealMail} isCurrency />
+      {mailingTags && <TagBreakdownTable rows={mailingTags} />}
 
       <SectionHeader label="הכנסות נוספות" />
       <PacedRow label="ספה ושדרוגים" result={workday(spaActual, t("revenue_spa_upgrades"))} isCurrency />
