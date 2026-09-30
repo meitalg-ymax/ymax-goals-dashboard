@@ -25,6 +25,22 @@ export async function proxy(request: NextRequest) {
     }
   );
 
+  // Vercel's cron invokes GET /api/import/budget directly (no browser
+  // session) with the same Bearer CRON_SECRET the route itself checks --
+  // bypass the cookie-auth check only for that exact secret, so the manual
+  // POST button behind DataOpsBar still requires a logged-in session same as
+  // before. (This must stay committed to git -- an earlier version of this
+  // fix was only ever pushed via a direct `vercel deploy` and got silently
+  // wiped out by the next git-based redeploy, breaking the daily cron for a
+  // day before anyone noticed. See app/api/import/budget/route.ts.)
+  const authHeader = request.headers.get("authorization");
+  if (
+    request.nextUrl.pathname.startsWith("/api/import/budget") &&
+    authHeader === `Bearer ${process.env.CRON_SECRET}`
+  ) {
+    return response;
+  }
+
   const {
     data: { user },
   } = await supabase.auth.getUser();

@@ -1,14 +1,12 @@
 import { NextResponse } from "next/server";
-import * as XLSX from "xlsx";
 import { createServiceClient } from "@/lib/supabase/service";
-import { parseBudgetSheet, budgetSheetTabName } from "@/lib/imports/budgetSheet";
+import { parseDailyBudgetSheet } from "@/lib/imports/budgetSheet";
 
-// Backs the "עדכון תקציב שנוצל" button. Meital's budget tracker is a Google
-// Sheet shared "anyone with the link can view", with one tab per month
-// ("אוגוסט 2026", etc.) -- fetches the WHOLE workbook (no per-tab gid) and
-// picks the current month's tab by name, so this keeps working next month
-// with zero code/env changes as long as she keeps making a new tab with the
-// same naming pattern.
+// Backs both the "עדכון תקציב שנוצל" manual button (POST, no auth -- same as
+// the other DataOpsBar buttons) and the daily Vercel cron (GET, CRON_SECRET
+// like /api/sync/zoho). Meital's tracker is a single continuously-updated
+// Google Sheet tab ("מעקב יומי"), fetched by CSV export -- no OAuth needed
+// since it's shared "anyone with the link can view".
 export const maxDuration = 30;
 
 function currentMonthStart(): string {
@@ -16,55 +14,80 @@ function currentMonthStart(): string {
   return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}-01`;
 }
 
-export async function POST() {
+async function fetchAndParseBudgetSheet(sheetId: string, gid: string, now: Date) {
+  const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`;
+  const res = await fetch(csvUrl, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Failed to fetch budget sheet: HTTP ${res.status}`);
+  const csvText = await res.text();
+  return parseDailyBudgetSheet(csvText, now);
+}
+
+async function runBudgetImport() {
   const sheetId = process.env.BUDGET_SHEET_ID;
-  if (!sheetId) {
-    return NextResponse.json({ error: "BUDGET_SHEET_ID לא מוגדר בסביבה" }, { status: 500 });
+  const gid = process.env.BUDGET_SHEET_GID;
+  if (!sheetId || !gid) {
+    throw new Error("BUDGET_SHEET_ID / BUDGET_SHEET_GID לא מוגדרים בסביבה");
   }
 
+  const now = new Date();
+  // Google's CSV export occasionally comes back truncated mid-row (confirmed
+  // 2026-09-17: one cron run silently froze 4 of 5 divisions at yesterday's
+  // value because their columns fell past where the response cut off) --
+  // parseDailyBudgetSheet throws when it detects that, so retry once before
+  // giving up rather than skipping the day's update entirely.
+  let rows;
   try {
-    const workbookUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=xlsx`;
-    const res = await fetch(workbookUrl);
-    if (!res.ok) throw new Error(`Failed to fetch budget workbook: HTTP ${res.status}`);
-    const buffer = Buffer.from(await res.arrayBuffer());
-    const wb = XLSX.read(buffer, { type: "buffer" });
+    rows = await fetchAndParseBudgetSheet(sheetId, gid, now);
+  } catch {
+    rows = await fetchAndParseBudgetSheet(sheetId, gid, now);
+  }
+  const month = currentMonthStart();
 
-    const tabName = budgetSheetTabName(new Date());
-    const ws = wb.Sheets[tabName];
-    if (!ws) {
-      throw new Error(
-        `לא נמצאה לשונית "${tabName}" בגיליון. לשוניות קיימות: ${wb.SheetNames.join(", ")}`
-      );
-    }
+  const supabase = createServiceClient();
+  // updated_at only defaults to now() on INSERT -- an upsert that hits an
+  // existing row (re-running this daily, for the same month) is an UPDATE,
+  // which Postgres leaves the default alone for, so it must be set
+  // explicitly here or the "last updated" badge freezes at whenever the row
+  // was first created (confirmed real bug 2026-08-23: budget kept
+  // refreshing but the shown date never moved).
+  const nowIso = now.toISOString();
+  const { error } = await supabase.from("manual_entries").upsert(
+    rows.map((r) => ({
+      kind: "rapid_actual" as const,
+      month,
+      division: r.division,
+      metric: "budget_funded",
+      value: r.budgetActual,
+      updated_at: nowIso,
+    })),
+    { onConflict: "kind,month,division,metric" }
+  );
+  if (error) throw new Error(`Failed to upsert budget_funded: ${error.message}`);
 
-    const csvText = XLSX.utils.sheet_to_csv(ws);
-    const rows = parseBudgetSheet(csvText);
-    const month = currentMonthStart();
+  return { month, divisionsUpdated: rows.length, rows };
+}
 
-    const supabase = createServiceClient();
-    // updated_at only defaults to now() on INSERT -- an upsert that hits an
-    // existing row (re-running this every time the button is clicked, for
-    // the same month) is an UPDATE, which Postgres leaves the default alone
-    // for, so it must be set explicitly here or the "last updated" badge
-    // freezes at whenever the row was first created (confirmed real bug
-    // 2026-08-23: budget kept refreshing but the shown date never moved).
-    const nowIso = new Date().toISOString();
-    const { error } = await supabase.from("manual_entries").upsert(
-      rows.map((r) => ({
-        kind: "rapid_actual" as const,
-        month,
-        division: r.division,
-        metric: "budget_funded",
-        value: r.budgetActual,
-        updated_at: nowIso,
-      })),
-      { onConflict: "kind,month,division,metric" }
-    );
-    if (error) throw new Error(`Failed to upsert budget_funded: ${error.message}`);
-
-    return NextResponse.json({ status: "ok", month, tabName, divisionsUpdated: rows.length, rows });
+export async function POST() {
+  try {
+    const result = await runBudgetImport();
+    return NextResponse.json({ status: "ok", ...result });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+
+export async function GET(request: Request) {
+  const authHeader = request.headers.get("authorization");
+  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  try {
+    const result = await runBudgetImport();
+    return NextResponse.json({ status: "ok", ...result });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ status: "error", error: message }, { status: 500 });
   }
 }
