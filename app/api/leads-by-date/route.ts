@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
-import { fetchLeadsForDateRange, fetchCoordinationsForDateRange, type LeadRow } from "@/lib/zoho/queries";
-import { classifyPaidOrganic, classifyDivisionFromSource, DIVISIONS, type Division } from "@/lib/zoho/transform";
+import {
+  fetchLeadsForDateRange,
+  fetchCoordinationsForDateRange,
+  fetchInvalidLeadsForDateRange,
+  type LeadRow,
+  type InvalidLeadRow,
+} from "@/lib/zoho/queries";
+import { classifyPaidOrganic, classifyDivisionFromSource, aggregateInvalidLeads, DIVISIONS, type Division } from "@/lib/zoho/transform";
 
 // Live on-demand report for the "לידים לפי תאריך" tab -- runs its own Zoho
 // query for whatever range the user picks, separate from the daily
@@ -41,6 +47,37 @@ function groupByTypeAndDivision(rows: LeadRow[], kind: "paid" | "organic"): { to
   return { total: kindRows.length, divisions };
 }
 
+type InvalidDivisionGroup = { division: Division; total: number; reasons: { reason: string; count: number }[] };
+type InvalidGroup = { total: number; divisions: InvalidDivisionGroup[] };
+
+// Invalid leads are classified by `type` (not Lead_Source text, per the
+// standing "everything except leads count uses type" rule) -- reuses the
+// same aggregateInvalidLeads used by the monthly sync. Split into
+// ממומן/אורגני via classifyPaidOrganic (same as groupByTypeAndDivision
+// above) so Meital can see the field90 breakdown on both, not just ממומן --
+// unlike the "invalid_leads_funded" metric used elsewhere on the dashboard,
+// which is ממומן-only by design.
+function buildInvalidGroup(rows: InvalidLeadRow[]): InvalidGroup {
+  const { metrics, reasons } = aggregateInvalidLeads(rows);
+  const divisions = DIVISIONS.map((division) => ({
+    division,
+    total: metrics.find((m) => m.division === division)?.value ?? 0,
+    reasons: reasons
+      .filter((r) => r.division === division)
+      .map((r) => ({ reason: r.reason, count: r.count }))
+      .sort((a, b) => b.count - a.count),
+  })).filter((d) => d.total > 0);
+
+  return { total: rows.length, divisions };
+}
+
+function buildInvalidSummary(rows: InvalidLeadRow[]): { funded: InvalidGroup; organic: InvalidGroup } {
+  return {
+    funded: buildInvalidGroup(rows.filter((r) => classifyPaidOrganic(r.Lead_Source) === "paid")),
+    organic: buildInvalidGroup(rows.filter((r) => classifyPaidOrganic(r.Lead_Source) === "organic")),
+  };
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const from = searchParams.get("from");
@@ -54,9 +91,10 @@ export async function GET(request: Request) {
   }
 
   try {
-    const [rows, coordinationRows] = await Promise.all([
+    const [rows, coordinationRows, invalidRows] = await Promise.all([
       fetchLeadsForDateRange(from, to),
       fetchCoordinationsForDateRange(from, to),
+      fetchInvalidLeadsForDateRange(from, to),
     ]);
     const funded = groupByTypeAndDivision(rows, "paid");
     const organic = groupByTypeAndDivision(rows, "organic");
@@ -69,6 +107,7 @@ export async function GET(request: Request) {
       total: rows.length,
       funded,
       organic,
+      invalid: buildInvalidSummary(invalidRows),
       coordinations: {
         total: coordinationRows.length,
         funded: coordinationsFunded,

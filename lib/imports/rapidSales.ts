@@ -37,12 +37,15 @@ const PRODUCTS_LABEL = "מוצרים יפה";
 export type CategoryRow = { category: string; division: Division | null; amount: number };
 export type BranchRevenueRow = { branch: Branch; amount: number };
 export type BranchRepRevenueRow = { branch: Branch; rep: string; amount: number };
+export type RepDivision = Division | "products" | "other";
+export type BranchRepDivisionRevenueRow = { branch: Branch; rep: string; division: RepDivision; amount: number };
 export type ParsedRapidSales = {
   month: string;
   categoryRows: CategoryRow[];
   unmapped: { category: string; amount: number }[];
   branchRows: BranchRevenueRow[];
   branchRepRows: BranchRepRevenueRow[];
+  branchRepDivisionRows: BranchRepDivisionRevenueRow[];
   rowCount: number;
 };
 
@@ -73,6 +76,10 @@ export function parseRapidSalesReport(buffer: Buffer): ParsedRapidSales {
   // how zoho_branch_rep_metrics leaves unassigned rows out and lets the UI
   // derive the "unassigned" remainder instead).
   const rawBranchRepTotals = new Map<string, number>();
+  // branch+rep+division -- same rows as rawBranchRepTotals, additionally
+  // split by category->division for the "יועצות" tab. Products and unmapped
+  // categories get their own buckets so per-rep sums still match the above.
+  const rawBranchRepDivisionTotals = new Map<string, number>();
   for (const r of dataRows) {
     const category = String(r[2]);
     const total = Number(r[15]) || 0;
@@ -86,6 +93,12 @@ export function parseRapidSalesReport(buffer: Buffer): ParsedRapidSales {
       if (rep) {
         const key = `${branch}||${rep}`;
         rawBranchRepTotals.set(key, (rawBranchRepTotals.get(key) ?? 0) + total);
+
+        const division: RepDivision = PRODUCT_CATEGORIES.includes(category)
+          ? "products"
+          : (CATEGORY_TO_DIVISION[category] ?? "other");
+        const divKey = `${branch}||${rep}||${division}`;
+        rawBranchRepDivisionTotals.set(divKey, (rawBranchRepDivisionTotals.get(divKey) ?? 0) + total);
       }
     }
   }
@@ -93,6 +106,10 @@ export function parseRapidSalesReport(buffer: Buffer): ParsedRapidSales {
   const branchRepRows: BranchRepRevenueRow[] = [...rawBranchRepTotals].map(([key, amount]) => {
     const [branch, rep] = key.split("||") as [Branch, string];
     return { branch, rep, amount };
+  });
+  const branchRepDivisionRows: BranchRepDivisionRevenueRow[] = [...rawBranchRepDivisionTotals].map(([key, amount]) => {
+    const [branch, rep, division] = key.split("||") as [Branch, string, RepDivision];
+    return { branch, rep, division, amount };
   });
 
   const categoryRows: CategoryRow[] = [];
@@ -118,11 +135,11 @@ export function parseRapidSalesReport(buffer: Buffer): ParsedRapidSales {
     categoryRows.push({ category: u.category, division: null, amount: u.amount });
   }
 
-  return { month, categoryRows, unmapped, branchRows, branchRepRows, rowCount: dataRows.length };
+  return { month, categoryRows, unmapped, branchRows, branchRepRows, branchRepDivisionRows, rowCount: dataRows.length };
 }
 
 export async function applyRapidSalesImport(supabase: SupabaseClient, parsed: ParsedRapidSales) {
-  const { month, categoryRows, unmapped, branchRows, branchRepRows } = parsed;
+  const { month, categoryRows, unmapped, branchRows, branchRepRows, branchRepDivisionRows } = parsed;
 
   // Replace this importer's own categories for the month only --
   // rapid_sales_categories also holds rows from the referrals importer,
@@ -166,6 +183,20 @@ export async function applyRapidSalesImport(supabase: SupabaseClient, parsed: Pa
     if (branchRepInsertError) throw new Error(`Failed to insert branch-rep rows: ${branchRepInsertError.message}`);
   }
 
+  // rapid_sales_by_branch_rep_division -- also exclusively owned by this
+  // importer, same full delete-then-insert-for-the-month approach.
+  const { error: repDivDeleteError } = await supabase
+    .from("rapid_sales_by_branch_rep_division")
+    .delete()
+    .eq("month", month);
+  if (repDivDeleteError) throw new Error(`Failed to clear old rep-division rows: ${repDivDeleteError.message}`);
+  if (branchRepDivisionRows.length > 0) {
+    const { error: repDivInsertError } = await supabase
+      .from("rapid_sales_by_branch_rep_division")
+      .insert(branchRepDivisionRows.map((b) => ({ month, branch: b.branch, rep: b.rep, division: b.division, amount: b.amount })));
+    if (repDivInsertError) throw new Error(`Failed to insert rep-division rows: ${repDivInsertError.message}`);
+  }
+
   const byDivision = new Map<Division, number>();
   for (const c of categoryRows) {
     if (!c.division) continue;
@@ -197,5 +228,6 @@ export async function applyRapidSalesImport(supabase: SupabaseClient, parsed: Pa
     divisionsUpdated: byDivision.size,
     branchesWritten: branchRows.length,
     branchRepsWritten: branchRepRows.length,
+    branchRepDivisionsWritten: branchRepDivisionRows.length,
   };
 }

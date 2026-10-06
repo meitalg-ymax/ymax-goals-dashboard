@@ -358,6 +358,51 @@ export function aggregateBranchRepClosings(rows: BranchClosingRow[]): BranchRepM
   return out;
 }
 
+// Cross-tab: rep x division (by `type`) within each branch -- feeds the
+// "יועצות" tab ("how much did each advisor close in ymax / doctor / ...").
+// Same skip rules as the rep cross-tab above (no rep -> skipped), plus rows
+// whose type doesn't map to a division are skipped too; the UI shows both
+// as residuals against the rep/branch totals.
+export type BranchRepDivisionMetricRow = {
+  branch: Branch;
+  rep: string;
+  division: Division;
+  metric: string;
+  value: number;
+};
+
+function aggregateBranchRepDivision<T extends { field123456?: string; field1234?: string; type?: string }>(
+  rows: T[],
+  metrics: { metric: string; valueOf: (r: T) => number }[]
+): BranchRepDivisionMetricRow[] {
+  const sums = new Map<string, number>();
+  for (const r of rows) {
+    const branch = classifyBranch(r.field123456);
+    const rep = (r.field1234 ?? "").trim();
+    const division = classifyDivisionFromType(r.type);
+    if (!branch || !rep || !division) continue;
+    for (const m of metrics) {
+      const key = `${branch}||${rep}||${division}||${m.metric}`;
+      sums.set(key, (sums.get(key) ?? 0) + m.valueOf(r));
+    }
+  }
+  return [...sums].map(([key, value]) => {
+    const [branch, rep, division, metric] = key.split("||") as [Branch, string, Division, string];
+    return { branch, rep, division, metric, value };
+  });
+}
+
+export function aggregateBranchRepDivisionArrivals(rows: BranchArrivalRow[]): BranchRepDivisionMetricRow[] {
+  return aggregateBranchRepDivision(rows, [{ metric: "arrivals", valueOf: () => 1 }]);
+}
+
+export function aggregateBranchRepDivisionClosings(rows: BranchClosingRow[]): BranchRepDivisionMetricRow[] {
+  return aggregateBranchRepDivision(rows, [
+    { metric: "closings", valueOf: () => 1 },
+    { metric: "revenue", valueOf: (r) => r.field1234567 ?? 0 },
+  ]);
+}
+
 // Mailing leads use Tag (not Created_Time), so they're a separate metric
 // from leads_funded/leads_organic above, division still by Lead_Source text
 // (Tag content isn't a reliable division signal -- e.g. a "לגוף" tag can sit

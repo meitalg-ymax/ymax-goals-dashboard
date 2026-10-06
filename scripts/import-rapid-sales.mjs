@@ -84,6 +84,9 @@ function parseReport(filePath) {
   // branch+rep (צוות מכירות, column 12) -- kept in sync by hand with
   // lib/imports/rapidSales.ts, same reason as classifyBranch/CATEGORY_TO_DIVISION above.
   const rawBranchRepTotals = new Map(); // "branch||rep" -> sum
+  // branch+rep+division (products -> "products", unmapped -> "other") for the
+  // "יועצות" tab -- kept in sync by hand with lib/imports/rapidSales.ts.
+  const rawBranchRepDivisionTotals = new Map(); // "branch||rep||division" -> sum
   for (const r of dataRows) {
     const category = r[2];
     const total = Number(r[15]) || 0;
@@ -97,6 +100,12 @@ function parseReport(filePath) {
       if (rep) {
         const key = `${branch}||${rep}`;
         rawBranchRepTotals.set(key, (rawBranchRepTotals.get(key) ?? 0) + total);
+
+        const division = PRODUCT_CATEGORIES.includes(category)
+          ? "products"
+          : (CATEGORY_TO_DIVISION[category] ?? "other");
+        const divKey = `${branch}||${rep}||${division}`;
+        rawBranchRepDivisionTotals.set(divKey, (rawBranchRepDivisionTotals.get(divKey) ?? 0) + total);
       }
     }
   }
@@ -104,6 +113,10 @@ function parseReport(filePath) {
   const branchRepRows = [...rawBranchRepTotals].map(([key, amount]) => {
     const [branch, rep] = key.split("||");
     return { branch, rep, amount };
+  });
+  const branchRepDivisionRows = [...rawBranchRepDivisionTotals].map(([key, amount]) => {
+    const [branch, rep, division] = key.split("||");
+    return { branch, rep, division, amount };
   });
 
   const categoryRows = []; // { category, division, amount }
@@ -126,7 +139,7 @@ function parseReport(filePath) {
     categoryRows.push({ category: PRODUCTS_LABEL, division: null, amount: productsTotal });
   }
 
-  return { month, categoryRows, unmapped, branchRows, branchRepRows, rowCount: dataRows.length };
+  return { month, categoryRows, unmapped, branchRows, branchRepRows, branchRepDivisionRows, rowCount: dataRows.length };
 }
 
 async function main() {
@@ -142,7 +155,8 @@ async function main() {
     auth: { persistSession: false },
   });
 
-  const { month, categoryRows, unmapped, branchRows, branchRepRows, rowCount } = parseReport(filePath);
+  const { month, categoryRows, unmapped, branchRows, branchRepRows, branchRepDivisionRows, rowCount } =
+    parseReport(filePath);
 
   console.log(`Report month: ${month} (${rowCount} line items)`);
   console.log("Categories:");
@@ -196,6 +210,19 @@ async function main() {
     if (branchRepInsertError) throw new Error(`Failed to insert branch-rep rows: ${branchRepInsertError.message}`);
   }
 
+  // rapid_sales_by_branch_rep_division -- also exclusively owned by this importer.
+  const { error: repDivDeleteError } = await supabase
+    .from("rapid_sales_by_branch_rep_division")
+    .delete()
+    .eq("month", month);
+  if (repDivDeleteError) throw new Error(`Failed to clear old rep-division rows: ${repDivDeleteError.message}`);
+  if (branchRepDivisionRows.length > 0) {
+    const { error: repDivInsertError } = await supabase
+      .from("rapid_sales_by_branch_rep_division")
+      .insert(branchRepDivisionRows.map((b) => ({ month, branch: b.branch, rep: b.rep, division: b.division, amount: b.amount })));
+    if (repDivInsertError) throw new Error(`Failed to insert rep-division rows: ${repDivInsertError.message}`);
+  }
+
   const byDivision = new Map();
   for (const c of categoryRows) {
     if (!c.division) continue;
@@ -228,6 +255,9 @@ async function main() {
   }
 
   console.log(`\nBranch+rep revenue (rapid_sales_by_branch_rep) replaced: ${branchRepRows.length} row(s).`);
+  console.log(
+    `Branch+rep+division revenue (rapid_sales_by_branch_rep_division) replaced: ${branchRepDivisionRows.length} row(s).`
+  );
 
   console.log("\nrevenue_spa_upgrades (rapid_actual) replaced for:");
   for (const [division, value] of byDivision) {

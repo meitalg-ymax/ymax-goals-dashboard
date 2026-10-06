@@ -87,6 +87,13 @@ const EMPTY_BRANCH_DIVISION_METRICS: BranchDivisionMetrics = { arrivals: 0, coor
 // list like BranchDivisionMetrics above.
 export type BranchRepMetrics = { arrivals: number; closings: number };
 
+// Rep x division rows for the "יועצות" tab, passed through flat (one row per
+// branch+rep+division[+metric]) -- the tab sums them client-side according to
+// its own branch filter, so there's nothing to pre-shape here.
+export type RepDivisionMetricRow = { branch: Branch; rep: string; division: Division; metric: string; value: number };
+export type RapidRepDivision = Division | "products" | "other";
+export type RapidRepDivisionRow = { branch: Branch; rep: string; division: RapidRepDivision; amount: number };
+
 export type DashboardData = {
   hasSyncedData: boolean;
   asOf: string | null;
@@ -110,6 +117,8 @@ export type DashboardData = {
   branchRepMetrics: Record<Branch, Record<string, BranchRepMetrics>>;
   rapidRevenueByBranch: Record<Branch, number>;
   rapidRepRevenueByBranch: Record<Branch, Record<string, number>>;
+  repDivisionMetrics: RepDivisionMetricRow[];
+  rapidRepDivisionRevenue: RapidRepDivisionRow[];
 };
 
 const REFERRALS_CATEGORY = "ירוקים (הפניות)";
@@ -153,6 +162,8 @@ export async function getDashboardData(month?: string): Promise<DashboardData> {
     { data: branchRepMetricRows },
     { data: rapidBranchRows },
     { data: rapidBranchRepRows },
+    { data: repDivisionRows },
+    { data: rapidRepDivisionRows },
     { data: syncRunRows },
   ] = await Promise.all([
     supabase.from("zoho_metrics").select("division, metric, value, as_of").eq("month", monthStart),
@@ -171,6 +182,11 @@ export async function getDashboardData(month?: string): Promise<DashboardData> {
     supabase.from("zoho_branch_rep_metrics").select("branch, rep, metric, value").eq("month", monthStart),
     supabase.from("rapid_sales_by_branch").select("branch, amount").eq("month", monthStart),
     supabase.from("rapid_sales_by_branch_rep").select("branch, rep, amount").eq("month", monthStart),
+    supabase
+      .from("zoho_branch_rep_division_metrics")
+      .select("branch, rep, division, metric, value")
+      .eq("month", monthStart),
+    supabase.from("rapid_sales_by_branch_rep_division").select("branch, rep, division, amount").eq("month", monthStart),
     supabase
       .from("sync_runs")
       .select("finished_at")
@@ -402,5 +418,18 @@ export async function getDashboardData(month?: string): Promise<DashboardData> {
     branchRepMetrics,
     rapidRevenueByBranch,
     rapidRepRevenueByBranch,
+    repDivisionMetrics: (repDivisionRows ?? []).map((r) => ({
+      branch: r.branch as Branch,
+      rep: r.rep as string,
+      division: r.division as Division,
+      metric: r.metric as string,
+      value: Number(r.value),
+    })),
+    rapidRepDivisionRevenue: (rapidRepDivisionRows ?? []).map((r) => ({
+      branch: r.branch as Branch,
+      rep: r.rep as string,
+      division: r.division as RapidRepDivision,
+      amount: Number(r.amount),
+    })),
   };
 }

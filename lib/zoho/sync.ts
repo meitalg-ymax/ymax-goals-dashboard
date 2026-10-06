@@ -29,6 +29,8 @@ import {
   aggregateBranchDivisionClosings,
   aggregateBranchRepArrivals,
   aggregateBranchRepClosings,
+  aggregateBranchRepDivisionArrivals,
+  aggregateBranchRepDivisionClosings,
   type MetricRow,
 } from "./transform";
 
@@ -41,6 +43,7 @@ export type SyncResult = {
   branchMetricsWritten: number;
   branchDivisionMetricsWritten: number;
   branchRepMetricsWritten: number;
+  branchRepDivisionMetricsWritten: number;
 };
 
 export async function runZohoSync(
@@ -269,6 +272,40 @@ async function syncRange(
     throw new Error(`Failed to upsert zoho_branch_rep_metrics: ${branchRepMetricsError.message}`);
   }
 
+  // Rep x division -- full replace for the month (not upsert), since this
+  // table only holds non-zero combos: a rep/division pair that drops to zero
+  // (e.g. a lead reassigned to another rep) must disappear, not keep its
+  // stale value. This sync job is the table's only writer.
+  const branchRepDivisionMetrics = [
+    ...aggregateBranchRepDivisionArrivals(branchArrivalRows),
+    ...aggregateBranchRepDivisionClosings(branchClosingRows),
+  ];
+  const { error: deleteRepDivisionError } = await supabase
+    .from("zoho_branch_rep_division_metrics")
+    .delete()
+    .eq("month", range.monthStartDateStr);
+  if (deleteRepDivisionError) {
+    throw new Error(`Failed to clear old zoho_branch_rep_division_metrics: ${deleteRepDivisionError.message}`);
+  }
+  const branchRepDivisionInserts = branchRepDivisionMetrics.map((m) => ({
+    month: range.monthStartDateStr,
+    branch: m.branch,
+    rep: m.rep,
+    division: m.division,
+    metric: m.metric,
+    value: m.value,
+    as_of: range.yesterdayDateStr,
+    synced_at: new Date().toISOString(),
+  }));
+  if (branchRepDivisionInserts.length > 0) {
+    const { error: repDivisionError } = await supabase
+      .from("zoho_branch_rep_division_metrics")
+      .insert(branchRepDivisionInserts);
+    if (repDivisionError) {
+      throw new Error(`Failed to insert zoho_branch_rep_division_metrics: ${repDivisionError.message}`);
+    }
+  }
+
   return {
     monthStartDateStr: range.monthStartDateStr,
     yesterdayDateStr: range.yesterdayDateStr,
@@ -278,5 +315,6 @@ async function syncRange(
     branchMetricsWritten: branchMetricUpserts.length,
     branchDivisionMetricsWritten: branchDivisionMetricUpserts.length,
     branchRepMetricsWritten: branchRepMetricUpserts.length,
+    branchRepDivisionMetricsWritten: branchRepDivisionInserts.length,
   };
 }

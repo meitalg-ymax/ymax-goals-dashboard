@@ -12,6 +12,7 @@ import { RevenueByDivisionPie } from "@/components/dashboard/RevenueByDivisionPi
 import { RapidCategoryBreakdown } from "@/components/dashboard/RapidCategoryBreakdown";
 import { LeadsByDateTab } from "@/components/dashboard/LeadsByDateTab";
 import { BranchTab } from "@/components/dashboard/BranchTab";
+import { RepsTab } from "@/components/dashboard/RepsTab";
 import { DataOpsBar } from "@/components/dashboard/DataOpsBar";
 import type { DashboardData } from "@/lib/dashboard/getDashboardData";
 import { DIVISIONS, type Division } from "@/lib/zoho/transform";
@@ -20,6 +21,7 @@ const GROUPS: TabDef[] = [
   { id: "kadav", label: "דוח קד״ב" },
   { id: "leads", label: "מעקב לידים" },
   { id: "branches", label: "לפי סניף" },
+  { id: "reps", label: "יועצות" },
 ];
 
 const TABS: TabDef[] = [
@@ -184,6 +186,14 @@ export function DashboardShell({ data, month }: { data: DashboardData; month: st
           branchRepMetrics={data.branchRepMetrics}
           rapidRevenueByBranch={data.rapidRevenueByBranch}
           rapidRepRevenueByBranch={data.rapidRepRevenueByBranch}
+        />
+      )}
+
+      {activeGroup === "reps" && (
+        <RepsTab
+          repDivisionMetrics={data.repDivisionMetrics}
+          rapidRepDivisionRevenue={data.rapidRepDivisionRevenue}
+          branchMetrics={data.branchMetrics}
         />
       )}
 
