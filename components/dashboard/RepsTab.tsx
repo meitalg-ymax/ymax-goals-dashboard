@@ -39,11 +39,29 @@ const DIVISION_COLORS: Record<RapidRepDivision, string> = {
 
 type ZohoMetric = "closings" | "arrivals" | "revenue";
 
-const METRIC_LABELS: Record<ZohoMetric, string> = {
-  closings: "סגירות",
-  arrivals: "הגעות",
+// "meetings" shows closings out of meetings (arrivals) in the same cell, with
+// the close rate under it -- Meital wanted the two side by side per type
+// rather than as separate toggles. "Meetings" here = actual arrivals, same as
+// the "פגישות" column in BranchTab's rep table.
+type ZohoView = "meetings" | "revenue";
+
+const VIEW_LABELS: Record<ZohoView, string> = {
+  meetings: "פגישות וסגירות",
   revenue: "הכנסות CRM",
 };
+
+function MeetingsCell({ closings, arrivals }: { closings: number; arrivals: number }) {
+  if (closings === 0 && arrivals === 0) return <span className="rep-matrix-zero">—</span>;
+  return (
+    <span className="rep-cell">
+      <span className="rep-cell-pair">
+        <strong>{formatNumber(closings)}</strong>
+        <span className="rep-cell-of"> / {formatNumber(arrivals)}</span>
+      </span>
+      <span className="rep-cell-pct">{arrivals > 0 ? `${Math.round((closings / arrivals) * 100)}%` : "—"}</span>
+    </span>
+  );
+}
 
 const RAPID_COLUMNS: RapidRepDivision[] = [...DIVISIONS, "products", "other"];
 
@@ -70,7 +88,7 @@ export function RepsTab({
   branchMetrics: Record<Branch, BranchMetrics>;
 }) {
   const [branchFilter, setBranchFilter] = useState<Branch | "all">("all");
-  const [metric, setMetric] = useState<ZohoMetric>("closings");
+  const [view, setView] = useState<ZohoView>("meetings");
 
   // Only branches that actually have rep data this month (same idea as
   // BranchTab hiding an all-zero חיפה card).
@@ -95,24 +113,31 @@ export function RepsTab({
     entry.byDivision[row.division][row.metric] += row.value;
   }
   const repTotal = (r: ZohoRep, m: ZohoMetric) => DIVISIONS.reduce((s, d) => s + r.byDivision[d][m], 0);
-  const zohoRows = [...zohoByRep.values()].sort((a, b) => repTotal(b, metric) - repTotal(a, metric));
-  const zohoDivisionTotals = Object.fromEntries(
-    DIVISIONS.map((d) => [d, zohoRows.reduce((s, r) => s + r.byDivision[d][metric], 0)])
-  ) as Record<Division, number>;
-  const zohoGrandTotal = DIVISIONS.reduce((s, d) => s + zohoDivisionTotals[d], 0);
-  const zohoGrandClosings = zohoRows.reduce((s, r) => s + repTotal(r, "closings"), 0);
-  const zohoGrandArrivals = zohoRows.reduce((s, r) => s + repTotal(r, "arrivals"), 0);
+  const sortMetric: ZohoMetric = view === "revenue" ? "revenue" : "closings";
+  const zohoRows = [...zohoByRep.values()].sort(
+    (a, b) => repTotal(b, sortMetric) - repTotal(a, sortMetric) || repTotal(b, "arrivals") - repTotal(a, "arrivals")
+  );
+  const divisionTotal = (d: Division, m: ZohoMetric) => zohoRows.reduce((s, r) => s + r.byDivision[d][m], 0);
+  const grandTotal = (m: ZohoMetric) => zohoRows.reduce((s, r) => s + repTotal(r, m), 0);
 
   // Residual: branch-wide totals (any rep / any type) minus what's attributed
   // above -- leads with no rep set, or a type that doesn't map to a division.
-  const branchTotal = BRANCHES.filter(inFilter).reduce((s, b) => s + branchMetrics[b][metric], 0);
-  const unattributed = Math.max(0, branchTotal - zohoGrandTotal);
+  const unattributed = (m: ZohoMetric) =>
+    Math.max(0, BRANCHES.filter(inFilter).reduce((s, b) => s + branchMetrics[b][m], 0) - grandTotal(m));
+  const unattributedArrivals = unattributed("arrivals");
+  const unattributedClosings = unattributed("closings");
+  const unattributedRevenue = unattributed("revenue");
 
-  const fmtZoho = (v: number) => (metric === "revenue" ? formatCurrency(v) : formatNumber(v));
-  const showRate = metric === "closings";
-  const zohoCols = `minmax(130px, 1.6fr) repeat(${DIVISIONS.length}, minmax(64px, 1fr)) minmax(76px, 1fr)${
-    showRate ? " minmax(64px, 0.8fr)" : ""
-  }`;
+  const zohoCols = `minmax(130px, 1.6fr) repeat(${DIVISIONS.length}, minmax(${view === "meetings" ? 78 : 70}px, 1fr)) minmax(86px, 1fr)`;
+
+  const zohoCell = (closings: number, arrivals: number, revenue: number) =>
+    view === "meetings" ? (
+      <MeetingsCell closings={closings} arrivals={arrivals} />
+    ) : revenue === 0 ? (
+      <span className="rep-matrix-zero">—</span>
+    ) : (
+      formatCurrency(revenue)
+    );
 
   // ---- Rapid: rep x division revenue, summed over the selected branch(es) ----
   const rapidByRep = new Map<string, Record<RapidRepDivision, number>>();
@@ -180,18 +205,23 @@ export function RepsTab({
             <span className="real-badge">{filterLabel}</span>
           </div>
           <div className="range-toggle" role="tablist" aria-label="מדד">
-            {(Object.keys(METRIC_LABELS) as ZohoMetric[]).map((m) => (
+            {(Object.keys(VIEW_LABELS) as ZohoView[]).map((v) => (
               <button
-                key={m}
+                key={v}
                 type="button"
-                className={metric === m ? "active" : undefined}
-                onClick={() => setMetric(m)}
+                className={view === v ? "active" : undefined}
+                onClick={() => setView(v)}
               >
-                {METRIC_LABELS[m]}
+                {VIEW_LABELS[v]}
               </button>
             ))}
           </div>
         </div>
+        {view === "meetings" && zohoRows.length > 0 && (
+          <p className="real-note rep-legend">
+            בכל תא: <strong>סגירות</strong> / פגישות (הגעות בפועל), ומתחת — אחוז הסגירה
+          </p>
+        )}
 
         {zohoRows.length === 0 ? (
           <p className="real-note">אין עדיין נתוני יועצות מזוהו לחודש הזה — יופיעו אחרי הסנכרון הבא.</p>
@@ -203,52 +233,44 @@ export function RepsTab({
                 {DIVISIONS.map((d) => (
                   <DivisionHead key={d} division={d} />
                 ))}
-                <span>סה״כ {METRIC_LABELS[metric]}</span>
-                {showRate && <span>אחוז סגירה</span>}
+                <span>סה״כ</span>
               </div>
-              {zohoRows.map((r) => {
-                const total = repTotal(r, metric);
-                const arrivals = repTotal(r, "arrivals");
-                return (
-                  <div className="rep-matrix-row" key={r.rep}>
-                    <span className="branch-rep-name">
-                      <RepInitial rep={r.rep} />
-                      {r.rep}
+              {zohoRows.map((r) => (
+                <div className="rep-matrix-row" key={r.rep}>
+                  <span className="branch-rep-name">
+                    <RepInitial rep={r.rep} />
+                    {r.rep}
+                  </span>
+                  {DIVISIONS.map((d) => (
+                    <span key={d}>
+                      {zohoCell(r.byDivision[d].closings, r.byDivision[d].arrivals, r.byDivision[d].revenue)}
                     </span>
-                    {DIVISIONS.map((d) => {
-                      const v = r.byDivision[d][metric];
-                      return (
-                        <span key={d} className={v === 0 ? "rep-matrix-zero" : undefined}>
-                          {v === 0 ? "—" : fmtZoho(v)}
-                        </span>
-                      );
-                    })}
-                    <span className="rep-matrix-total">{fmtZoho(total)}</span>
-                    {showRate && (
-                      <span className="rep-rate">{arrivals > 0 ? `${Math.round((total / arrivals) * 100)}%` : "—"}</span>
-                    )}
-                  </div>
-                );
-              })}
+                  ))}
+                  <span className="rep-matrix-total">
+                    {zohoCell(repTotal(r, "closings"), repTotal(r, "arrivals"), repTotal(r, "revenue"))}
+                  </span>
+                </div>
+              ))}
               <div className="rep-matrix-row rep-matrix-footer">
                 <span>סה״כ</span>
                 {DIVISIONS.map((d) => (
-                  <span key={d}>{fmtZoho(zohoDivisionTotals[d])}</span>
-                ))}
-                <span>{fmtZoho(zohoGrandTotal)}</span>
-                {showRate && (
-                  <span>
-                    {zohoGrandArrivals > 0 ? `${Math.round((zohoGrandClosings / zohoGrandArrivals) * 100)}%` : "—"}
+                  <span key={d}>
+                    {zohoCell(divisionTotal(d, "closings"), divisionTotal(d, "arrivals"), divisionTotal(d, "revenue"))}
                   </span>
-                )}
+                ))}
+                <span>{zohoCell(grandTotal("closings"), grandTotal("arrivals"), grandTotal("revenue"))}</span>
               </div>
             </div>
           </div>
         )}
-        {unattributed > 0 && (
+        {view === "meetings" && (unattributedArrivals > 0 || unattributedClosings > 0) && (
           <div className="unassigned-row">
-            + {fmtZoho(unattributed)} {METRIC_LABELS[metric]} ללא יועצת משויכת או ללא TYPE
+            + {formatNumber(unattributedClosings)} סגירות / {formatNumber(unattributedArrivals)} פגישות ללא יועצת משויכת
+            או ללא TYPE
           </div>
+        )}
+        {view === "revenue" && unattributedRevenue > 0 && (
+          <div className="unassigned-row">+ {formatCurrency(unattributedRevenue)} ללא יועצת משויכת או ללא TYPE</div>
         )}
       </section>
 
