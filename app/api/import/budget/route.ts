@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
-import { parseDailyBudgetSheet } from "@/lib/imports/budgetSheet";
+import { parseDailyBudgetSheet, fetchLegacyFallbackBudget, type BudgetRow } from "@/lib/imports/budgetSheet";
 
 // Backs both the "עדכון תקציב שנוצל" manual button (POST, no auth -- same as
 // the other DataOpsBar buttons) and the daily Vercel cron (GET, CRON_SECRET
@@ -35,12 +35,35 @@ async function runBudgetImport() {
   // value because their columns fell past where the response cut off) --
   // parseDailyBudgetSheet throws when it detects that, so retry once before
   // giving up rather than skipping the day's update entirely.
-  let rows;
+  let rows: BudgetRow[];
   try {
     rows = await fetchAndParseBudgetSheet(sheetId, gid, now);
   } catch {
     rows = await fetchAndParseBudgetSheet(sheetId, gid, now);
   }
+
+  // The מעקב יומי tracker's own upstream automation has stalled for days at
+  // a time (confirmed 2026-10-13: 4-day gap, parseDailyBudgetSheet correctly
+  // carried forward the last known value, but that's stale, not wrong on its
+  // own). Meital's fallback: the legacy per-month workbook's "ניצול תקציב"
+  // column is kept up by a separate process and doesn't share this failure
+  // mode. Since budget only accumulates through the month, taking the max of
+  // the two per division self-heals once the tracker catches back up, and
+  // never regresses a division below whichever source is further along.
+  const legacySheetId = process.env.LEGACY_BUDGET_SHEET_ID;
+  if (legacySheetId) {
+    try {
+      const fallback = await fetchLegacyFallbackBudget(legacySheetId, now);
+      rows = rows.map((r) => ({
+        ...r,
+        budgetActual: Math.max(r.budgetActual, fallback[r.division] ?? 0),
+      }));
+    } catch {
+      // Fallback is best-effort -- a hiccup fetching/parsing it shouldn't
+      // block today's update from the primary source.
+    }
+  }
+
   const month = currentMonthStart();
 
   const supabase = createServiceClient();

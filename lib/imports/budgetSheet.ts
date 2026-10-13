@@ -1,3 +1,4 @@
+import * as XLSX from "xlsx";
 import type { Division } from "@/lib/zoho/transform";
 
 // Meital's live budget/leads tracker: a Google Sheet with one continuous tab
@@ -170,4 +171,48 @@ export function parseDailyBudgetSheet(csvText: string, asOf: Date): BudgetRow[] 
     division,
     budgetActual: latestByDivision[division] ?? 0,
   }));
+}
+
+// Fallback source (confirmed real bug 2026-10-13: the מעקב יומי tracker's own
+// upstream automation stalled for 4 days, so parseDailyBudgetSheet correctly
+// but unhelpfully kept carrying forward a 4-day-stale value). Meital pointed
+// to the legacy per-month-tab workbook's "פירוט ממומן" block as a second,
+// independently-maintained source for the same ניצול תקציב number -- read
+// its CURRENT month tab (found by Hebrew name, since each month's tab is a
+// duplicate with an unpredictable new gid, same reasoning as the old
+// pre-rewrite budgetSheetTabName/parseBudgetSheet this is adapted from).
+const LEGACY_HEADER_MARKER = "סוג";
+const LEGACY_TOTAL_MARKER_PREFIX = "סה";
+// ["סוג", "תקציב שהוגדר", "% ניצול תקציב", "ניצול תקציב", ...] -- 0-indexed.
+const LEGACY_BUDGET_ACTUAL_COLUMN = 3;
+
+export async function fetchLegacyFallbackBudget(sheetId: string, asOf: Date): Promise<Partial<Record<Division, number>>> {
+  const workbookUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=xlsx`;
+  const res = await fetch(workbookUrl, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Failed to fetch legacy fallback workbook: HTTP ${res.status}`);
+  const buffer = Buffer.from(await res.arrayBuffer());
+  const wb = XLSX.read(buffer, { type: "buffer" });
+
+  const tabName = budgetSheetMonthLabel(asOf);
+  const ws = wb.Sheets[tabName];
+  if (!ws) {
+    throw new Error(`Legacy fallback workbook has no "${tabName}" tab (tabs: ${wb.SheetNames.join(", ")}).`);
+  }
+
+  const rows = XLSX.utils.sheet_to_json<string[]>(ws, { header: 1, raw: false, defval: "" });
+  const headerIdx = rows.findIndex((r) => (r[0] ?? "").trim() === LEGACY_HEADER_MARKER);
+  if (headerIdx === -1) {
+    throw new Error(`Legacy fallback tab "${tabName}" has no "${LEGACY_HEADER_MARKER}" header row.`);
+  }
+
+  const result: Partial<Record<Division, number>> = {};
+  for (let i = headerIdx + 1; i < rows.length; i++) {
+    const label = (rows[i][0] ?? "").trim();
+    if (!label) continue;
+    if (label.startsWith(LEGACY_TOTAL_MARKER_PREFIX)) break; // hit the סה"כ total row
+    const division = DIVISION_LABELS[label];
+    if (!division) continue; // unrecognized row, skip rather than guess
+    result[division] = parseCurrency(rows[i][LEGACY_BUDGET_ACTUAL_COLUMN]);
+  }
+  return result;
 }
