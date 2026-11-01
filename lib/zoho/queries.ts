@@ -287,9 +287,29 @@ export type MailingLeadRow = {
   type?: string;
   tags: string[];
   Lead_Status?: string;
+  field90?: string;
   field91?: string;
   field1234567?: number;
 };
+
+// "מעקב פניה" (field90) values that drop a tagged lead from the mailing
+// LEADS count -- matches Meital's own Zoho mailing-leads report filter
+// (confirmed 2026-10-20 from a screenshot: מעקב פניה "לא נמצא" these 7,
+// AND type not empty, AND Tag in the month's tags). Broader than
+// INVALID_LEAD_REASONS above on purpose -- a different report. Only the lead
+// count uses this; the per-tag funnel (תיאומים/הגעות/סגירות/הכנסה) still
+// counts every tagged lead. Empty field90 stays IN (Zoho's "לא נמצא"
+// includes nulls), which is why this is applied in transform.ts rather than
+// as a COQL "not in" (which would drop nulls too).
+export const MAILING_LEAD_FIELD90_EXCLUSIONS = [
+  "אי התאמה לטיפול",
+  "מרחק",
+  "פרטי קשר שגויים",
+  "אין מענה נעלם בתהליך המכירה",
+  "מכחיש פניה",
+  "הועבר לסניף",
+  "לא הבינה את הפרסום",
+];
 
 // Raw COQL shape before Tag parsing -- Zoho's native multiselect tag field
 // (ui_type 209) returns Tag as an array of {name,id,color_code} objects, not
@@ -300,6 +320,7 @@ type RawMailingLeadRow = {
   type?: string;
   Tag?: unknown;
   Lead_Status?: string;
+  field90?: string;
   field91?: string;
   field1234567?: number;
 };
@@ -318,7 +339,7 @@ function extractTagNames(raw: unknown): string[] {
 // see aggregateMailingLeadsByTag in transform.ts.
 export async function fetchMailingLeadsForMonth(range: MonthRange): Promise<MailingLeadRow[]> {
   const tag = hebrewMonthYearTag(range.monthDate);
-  const query = `select id, Lead_Source, type, Tag, Lead_Status, field91, field1234567 from Leads where Tag like '%${tag}%'`;
+  const query = `select id, Lead_Source, type, Tag, Lead_Status, field90, field91, field1234567 from Leads where Tag like '%${tag}%'`;
   const rows = (await runCoqlAll(query)) as RawMailingLeadRow[];
   return rows.map((r) => ({
     id: r.id,
@@ -326,6 +347,7 @@ export async function fetchMailingLeadsForMonth(range: MonthRange): Promise<Mail
     type: r.type,
     tags: extractTagNames(r.Tag),
     Lead_Status: r.Lead_Status,
+    field90: r.field90,
     field91: r.field91,
     field1234567: r.field1234567,
   }));

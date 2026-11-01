@@ -1,4 +1,4 @@
-import { TECH_TYPE_VALUES } from "./queries";
+import { TECH_TYPE_VALUES, MAILING_LEAD_FIELD90_EXCLUSIONS } from "./queries";
 import type {
   LeadRow,
   InvalidLeadRow,
@@ -407,10 +407,20 @@ export function aggregateBranchRepDivisionClosings(rows: BranchClosingRow[]): Br
 // from leads_funded/leads_organic above, division still by Lead_Source text
 // (Tag content isn't a reliable division signal -- e.g. a "לגוף" tag can sit
 // on a type=doctor record).
+// Whether a tagged lead counts toward the mailing LEADS number -- Meital's
+// Zoho report filter: type not empty AND מעקב פניה not one of
+// MAILING_LEAD_FIELD90_EXCLUSIONS (empty field90 counts). Lead count only;
+// funnel metrics keep every tagged lead.
+function isCountedMailingLead(row: MailingLeadRow): boolean {
+  if (!(row.type ?? "").trim()) return false;
+  return !MAILING_LEAD_FIELD90_EXCLUSIONS.includes(row.field90 ?? "");
+}
+
 export function aggregateMailingLeads(rows: MailingLeadRow[]): MetricRow[] {
   const out: MetricRow[] = [];
+  const counted = rows.filter(isCountedMailingLead);
   for (const division of DIVISIONS) {
-    const count = rows.filter((r) => classifyDivisionFromSource(r.Lead_Source, r.type) === division).length;
+    const count = counted.filter((r) => classifyDivisionFromSource(r.Lead_Source, r.type) === division).length;
     out.push({ division, metric: "leads_mailing", value: count });
   }
   return out;
@@ -449,7 +459,7 @@ export function aggregateMailingLeadsByTag(rows: MailingLeadRow[]): MailingTagMe
         entry = { division, tag, leads: 0, coordinations: 0, arrivals: 0, closings: 0, revenue: 0 };
         acc.set(key, entry);
       }
-      entry.leads += 1;
+      if (isCountedMailingLead(row)) entry.leads += 1;
       if (hasCoordination) entry.coordinations += 1;
       if (isArrival) entry.arrivals += 1;
       if (isClosing) {
