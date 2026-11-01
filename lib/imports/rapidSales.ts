@@ -46,6 +46,9 @@ export type ParsedRapidSales = {
   branchRows: BranchRevenueRow[];
   branchRepRows: BranchRepRevenueRow[];
   branchRepDivisionRows: BranchRepDivisionRevenueRow[];
+  // false when the source has no consultant names -- the per-rep tables are
+  // then left as they are rather than cleared.
+  hasReps: boolean;
   rowCount: number;
 };
 
@@ -67,10 +70,76 @@ export function parseRapidSalesReport(buffer: Buffer): ParsedRapidSales {
   if (!month) throw new Error(`Could not parse date range from title row: ${rows[0][0]}`);
 
   const dataRows = rows.slice(3).filter((r) => r.length && r[0] !== "");
+  const lines: SaleLine[] = dataRows.map((r) => ({
+    category: String(r[2]),
+    total: Number(r[15]) || 0,
+    branchName: String(r[0]),
+    rep: String(r[12] ?? "").trim(),
+  }));
+  return { month, ...aggregateSaleLines(lines), hasReps: true, rowCount: dataRows.length };
+}
 
+// Rapid's automatic daily email "דו"ח מכירות אווטומאטי" (DynamicReport_*.xlsx,
+// sheet "Export"): same document lines as SalesReport but with raw column
+// names -- month-to-date through yesterday, so the one sent on the 1st is
+// the previous month's full report. Verified 2026-11-01 against
+// SalesReport-29-10-2026 for 01-28/10: TotalWithVat summed per
+// ItemCategoryName matched SalesReport's סה"כ per קטגוריה to the shekel,
+// once SYSTEM_ITEMS (₪0 quote placeholders plus a few system lines that
+// SalesReport hides) is dropped. Branches come as BranchId only, mapped
+// below by matching those same per-branch totals.
+//
+// Consultants (SalesMembers) are user GUIDs, not names, so this format
+// can't feed the per-rep tables -- hasReps=false leaves them as the last
+// SalesReport upload wrote them instead of overwriting with GUIDs.
+const DYNAMIC_BRANCH_NAMES: Record<string, string> = {
+  "1": 'יפה מקסימוב ראשל"צ',
+  "2": 'יפה מקסימוב ר"ג',
+  "4": "יפה מקסימוב ירושלים",
+};
+
+export function parseRapidDynamicSalesReport(buffer: Buffer): ParsedRapidSales {
+  const wb = XLSX.read(buffer, { type: "buffer" });
+  const ws = wb.Sheets["Export"];
+  if (!ws) throw new Error(`Expected an "Export" sheet, found: ${wb.SheetNames.join(", ")}`);
+
+  const rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: "" }) as unknown[][];
+  const header = rows[0] as string[];
+  const col = (name: string) => {
+    const i = header.indexOf(name);
+    if (i === -1) throw new Error(`Missing column "${name}" in header: ${JSON.stringify(header)}`);
+    return i;
+  };
+  const dateCol = col("DocDate");
+  const categoryCol = col("ItemCategoryName");
+  const totalCol = col("TotalWithVat");
+  const branchCol = col("BranchId");
+
+  const dated = rows.slice(1).flatMap((r) => {
+    const m = /^(\d{2})\/(\d{2})\/(\d{4})/.exec(String(r[dateCol]));
+    return m ? [{ r, month: `${m[3]}-${m[2]}-01` }] : [];
+  });
+  if (dated.length === 0) throw new Error("Report has no dated rows");
+
+  // One report = one month; if it ever straddles two, keep the later one.
+  const month = dated.reduce((a, x) => (x.month > a ? x.month : a), dated[0].month);
+  const lines: SaleLine[] = dated
+    .filter((x) => x.month === month && String(x.r[categoryCol]) !== "SYSTEM_ITEMS")
+    .map(({ r }) => {
+      const branchId = String(r[branchCol]);
+      const branchName = DYNAMIC_BRANCH_NAMES[branchId];
+      if (!branchName) throw new Error(`Unknown BranchId "${branchId}" -- add it to DYNAMIC_BRANCH_NAMES`);
+      return { category: String(r[categoryCol]), total: Number(r[totalCol]) || 0, branchName, rep: "" };
+    });
+  return { month, ...aggregateSaleLines(lines), hasReps: false, rowCount: lines.length };
+}
+
+type SaleLine = { category: string; total: number; branchName: string; rep: string };
+
+function aggregateSaleLines(lines: SaleLine[]) {
   const rawTotals = new Map<string, number>();
   const rawBranchTotals = new Map<Branch, number>();
-  // branch+rep (צוות מכירות, column 12) -- a separate cross-section of the
+  // branch+rep (צוות מכירות) -- a separate cross-section of the
   // same report, purely for cross-referencing against zoho_branch_rep_metrics
   // in the UI. Rows with no rep set aren't attributed to anyone here (mirrors
   // how zoho_branch_rep_metrics leaves unassigned rows out and lets the UI
@@ -80,16 +149,13 @@ export function parseRapidSalesReport(buffer: Buffer): ParsedRapidSales {
   // split by category->division for the "יועצות" tab. Products and unmapped
   // categories get their own buckets so per-rep sums still match the above.
   const rawBranchRepDivisionTotals = new Map<string, number>();
-  for (const r of dataRows) {
-    const category = String(r[2]);
-    const total = Number(r[15]) || 0;
+  for (const { category, total, branchName, rep } of lines) {
     rawTotals.set(category, (rawTotals.get(category) ?? 0) + total);
 
-    const branch = classifyBranch(String(r[0]));
+    const branch = classifyBranch(branchName);
     if (branch) {
       rawBranchTotals.set(branch, (rawBranchTotals.get(branch) ?? 0) + total);
 
-      const rep = String(r[12] ?? "").trim();
       if (rep) {
         const key = `${branch}||${rep}`;
         rawBranchRepTotals.set(key, (rawBranchRepTotals.get(key) ?? 0) + total);
@@ -135,11 +201,11 @@ export function parseRapidSalesReport(buffer: Buffer): ParsedRapidSales {
     categoryRows.push({ category: u.category, division: null, amount: u.amount });
   }
 
-  return { month, categoryRows, unmapped, branchRows, branchRepRows, branchRepDivisionRows, rowCount: dataRows.length };
+  return { categoryRows, unmapped, branchRows, branchRepRows, branchRepDivisionRows };
 }
 
 export async function applyRapidSalesImport(supabase: SupabaseClient, parsed: ParsedRapidSales) {
-  const { month, categoryRows, unmapped, branchRows, branchRepRows, branchRepDivisionRows } = parsed;
+  const { month, categoryRows, unmapped, branchRows, branchRepRows, branchRepDivisionRows, hasReps } = parsed;
 
   // Replace this importer's own categories for the month only --
   // rapid_sales_categories also holds rows from the referrals importer,
@@ -172,29 +238,31 @@ export async function applyRapidSalesImport(supabase: SupabaseClient, parsed: Pa
     if (branchInsertError) throw new Error(`Failed to insert branch rows: ${branchInsertError.message}`);
   }
 
-  // rapid_sales_by_branch_rep is exclusively owned by this importer too --
-  // same full delete-then-insert-for-the-month approach as rapid_sales_by_branch.
-  const { error: branchRepDeleteError } = await supabase.from("rapid_sales_by_branch_rep").delete().eq("month", month);
-  if (branchRepDeleteError) throw new Error(`Failed to clear old branch-rep rows: ${branchRepDeleteError.message}`);
-  if (branchRepRows.length > 0) {
-    const { error: branchRepInsertError } = await supabase
-      .from("rapid_sales_by_branch_rep")
-      .insert(branchRepRows.map((b) => ({ month, branch: b.branch, rep: b.rep, amount: b.amount })));
-    if (branchRepInsertError) throw new Error(`Failed to insert branch-rep rows: ${branchRepInsertError.message}`);
-  }
+  if (hasReps) {
+    // rapid_sales_by_branch_rep is exclusively owned by this importer too --
+    // same full delete-then-insert-for-the-month approach as rapid_sales_by_branch.
+    const { error: branchRepDeleteError } = await supabase.from("rapid_sales_by_branch_rep").delete().eq("month", month);
+    if (branchRepDeleteError) throw new Error(`Failed to clear old branch-rep rows: ${branchRepDeleteError.message}`);
+    if (branchRepRows.length > 0) {
+      const { error: branchRepInsertError } = await supabase
+        .from("rapid_sales_by_branch_rep")
+        .insert(branchRepRows.map((b) => ({ month, branch: b.branch, rep: b.rep, amount: b.amount })));
+      if (branchRepInsertError) throw new Error(`Failed to insert branch-rep rows: ${branchRepInsertError.message}`);
+    }
 
-  // rapid_sales_by_branch_rep_division -- also exclusively owned by this
-  // importer, same full delete-then-insert-for-the-month approach.
-  const { error: repDivDeleteError } = await supabase
-    .from("rapid_sales_by_branch_rep_division")
-    .delete()
-    .eq("month", month);
-  if (repDivDeleteError) throw new Error(`Failed to clear old rep-division rows: ${repDivDeleteError.message}`);
-  if (branchRepDivisionRows.length > 0) {
-    const { error: repDivInsertError } = await supabase
+    // rapid_sales_by_branch_rep_division -- also exclusively owned by this
+    // importer, same full delete-then-insert-for-the-month approach.
+    const { error: repDivDeleteError } = await supabase
       .from("rapid_sales_by_branch_rep_division")
-      .insert(branchRepDivisionRows.map((b) => ({ month, branch: b.branch, rep: b.rep, division: b.division, amount: b.amount })));
-    if (repDivInsertError) throw new Error(`Failed to insert rep-division rows: ${repDivInsertError.message}`);
+      .delete()
+      .eq("month", month);
+    if (repDivDeleteError) throw new Error(`Failed to clear old rep-division rows: ${repDivDeleteError.message}`);
+    if (branchRepDivisionRows.length > 0) {
+      const { error: repDivInsertError } = await supabase
+        .from("rapid_sales_by_branch_rep_division")
+        .insert(branchRepDivisionRows.map((b) => ({ month, branch: b.branch, rep: b.rep, division: b.division, amount: b.amount })));
+      if (repDivInsertError) throw new Error(`Failed to insert rep-division rows: ${repDivInsertError.message}`);
+    }
   }
 
   const byDivision = new Map<Division, number>();

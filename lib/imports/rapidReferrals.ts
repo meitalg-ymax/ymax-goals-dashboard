@@ -33,10 +33,25 @@ export type ParsedReferrals = {
   excludedNotClosed: number;
   totalRows: number;
   amountSource: string;
+  // Row count per תאריך יצירה month ("YYYY-MM-01"), used by the automatic
+  // email import to tell a month-end snapshot from the new month's first one.
+  rowsByCreatedMonth: Record<string, number>;
 };
 
+// Rapid exports dates as "DD/MM/YYYY" strings; tolerate Excel serials too.
+function createdMonth(v: unknown): string | null {
+  if (typeof v === "number") {
+    const d = XLSX.SSF.parse_date_code(v);
+    return d ? `${d.y}-${String(d.m).padStart(2, "0")}-01` : null;
+  }
+  const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(String(v).trim());
+  return m ? `${m[3]}-${m[2].padStart(2, "0")}-01` : null;
+}
+
+// The manual "Treatment Plans Report" export says True; the automatic
+// "ירוקים2" email's DynamicReport says כן.
 function isTruthy(v: unknown): boolean {
-  return v === true || v === "True" || v === "TRUE" || v === 1;
+  return v === true || v === "True" || v === "TRUE" || v === 1 || v === "כן";
 }
 
 export function parseReferralsReport(buffer: Buffer): ParsedReferrals {
@@ -60,8 +75,12 @@ export function parseReferralsReport(buffer: Buffer): ParsedReferrals {
   let amount = 0;
   let includedCount = 0;
   let excludedNotClosed = 0;
+  const createdCol = header.indexOf("תאריך יצירה");
+  const rowsByCreatedMonth: Record<string, number> = {};
 
   for (const r of dataRows) {
+    const cm = createdCol !== -1 ? createdMonth(r[createdCol]) : null;
+    if (cm) rowsByCreatedMonth[cm] = (rowsByCreatedMonth[cm] ?? 0) + 1;
     if (!isTruthy(r[closedCol])) {
       excludedNotClosed++;
       continue;
@@ -70,7 +89,7 @@ export function parseReferralsReport(buffer: Buffer): ParsedReferrals {
     includedCount++;
   }
 
-  return { amount, includedCount, excludedNotClosed, totalRows: dataRows.length, amountSource };
+  return { amount, includedCount, excludedNotClosed, totalRows: dataRows.length, amountSource, rowsByCreatedMonth };
 }
 
 export async function applyReferralsImport(supabase: SupabaseClient, month: string, parsed: ParsedReferrals) {
