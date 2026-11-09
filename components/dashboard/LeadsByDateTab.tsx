@@ -23,7 +23,8 @@ const DIVISION_COLORS: Record<Division, string> = {
 };
 
 type SourceCount = { source: string; count: number };
-type DivisionGroup = { division: Division | null; total: number; sources: SourceCount[] };
+type DivisionGroup = { division: Division | null; total: number; sources: SourceCount[]; types?: { type: string; count: number }[] };
+type BreakdownBy = "source" | "type";
 type TypeGroup = { total: number; divisions: DivisionGroup[] };
 type CoordinationsGroup = { total: number; funded: TypeGroup; organic: TypeGroup };
 type ReasonCount = { reason: string; count: number };
@@ -49,7 +50,11 @@ function monthStartStr(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
 }
 
-function DivisionCard({ group }: { group: DivisionGroup }) {
+function DivisionCard({ group, by }: { group: DivisionGroup; by: BreakdownBy }) {
+  const items =
+    by === "type"
+      ? (group.types ?? []).map((t) => ({ name: t.type, count: t.count }))
+      : group.sources.map((s) => ({ name: s.source, count: s.count }));
   const label = group.division ? DIVISION_LABELS[group.division] : "לא משויך לחטיבה";
   const color = group.division ? DIVISION_COLORS[group.division] : "var(--muted)";
   return (
@@ -59,7 +64,7 @@ function DivisionCard({ group }: { group: DivisionGroup }) {
         <span className="division-name">{label}</span>
         <span className="division-total">{formatNumber(group.total)}</span>
       </div>
-      {group.sources.length === 0 ? (
+      {items.length === 0 ? (
         <div className="source-row">
           <span className="s-name" style={{ color: "var(--muted)", fontStyle: "italic" }}>
             אין לידים בטווח זה
@@ -67,9 +72,9 @@ function DivisionCard({ group }: { group: DivisionGroup }) {
           <span className="s-count">—</span>
         </div>
       ) : (
-        group.sources.map((s) => (
-          <div className="source-row" key={s.source}>
-            <span className="s-name">{s.source}</span>
+        items.map((s) => (
+          <div className="source-row" key={s.name}>
+            <span className="s-name">{s.name}</span>
             <span className="s-count">{formatNumber(s.count)}</span>
           </div>
         ))
@@ -78,7 +83,19 @@ function DivisionCard({ group }: { group: DivisionGroup }) {
   );
 }
 
-function TypeSection({ title, badgeClass, group, note }: { title: string; badgeClass: string; group: TypeGroup; note: string }) {
+function TypeSection({
+  title,
+  badgeClass,
+  group,
+  note,
+  by,
+}: {
+  title: string;
+  badgeClass: string;
+  group: TypeGroup;
+  note: string;
+  by: BreakdownBy;
+}) {
   return (
     <div className="type-section">
       <div className="type-head">
@@ -89,7 +106,7 @@ function TypeSection({ title, badgeClass, group, note }: { title: string; badgeC
       </div>
       <div className="division-grid">
         {group.divisions.map((g) => (
-          <DivisionCard group={g} key={g.division ?? "unclassified"} />
+          <DivisionCard group={g} by={by} key={g.division ?? "unclassified"} />
         ))}
       </div>
     </div>
@@ -221,6 +238,7 @@ export function LeadsByDateTab({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fetchedAt, setFetchedAt] = useState<string | null>(null);
+  const [by, setBy] = useState<BreakdownBy>("source");
 
   function handleFromChange(value: string) {
     setFrom(value);
@@ -274,6 +292,14 @@ export function LeadsByDateTab({
         <button className="btn-primary" onClick={handleFetch} disabled={loading} type="button">
           {loading ? "שולף..." : "משוך מ-Zoho"}
         </button>
+        <div className="range-toggle view-toggle">
+          <button className={by === "source" ? "active" : ""} onClick={() => setBy("source")} type="button">
+            לפי מקור ליד
+          </button>
+          <button className={by === "type" ? "active" : ""} onClick={() => setBy("type")} type="button">
+            לפי TYPE
+          </button>
+        </div>
         {fetchedAt && <span className="last-fetch">נשלף לאחרונה: היום {fetchedAt}</span>}
       </div>
 
@@ -327,12 +353,14 @@ export function LeadsByDateTab({
             badgeClass="funded"
             group={data.funded}
             note="שיוך תמיד לפי טקסט מקור הליד"
+            by={by}
           />
           <TypeSection
             title="אורגני"
             badgeClass="organic"
             group={data.organic}
             note="שיוך לפי type (המקור עצמו כמעט אף פעם לא מזכיר חטיבה)"
+            by={by}
           />
 
           <InvalidLeadsSection invalid={data.invalid} />
@@ -374,12 +402,14 @@ export function LeadsByDateTab({
             badgeClass="funded"
             group={data.coordinations.funded}
             note="שיוך תמיד לפי טקסט מקור הליד"
+            by={by}
           />
           <TypeSection
             title="אורגני"
             badgeClass="organic"
             group={data.coordinations.organic}
             note="שיוך לפי type (המקור עצמו כמעט אף פעם לא מזכיר חטיבה)"
+            by={by}
           />
 
           <p className="real-note">

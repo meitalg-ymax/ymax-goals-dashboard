@@ -7,6 +7,7 @@ import {
   type InvalidLeadRow,
 } from "@/lib/zoho/queries";
 import { classifyPaidOrganic, classifyDivisionFromSource, aggregateInvalidLeads, DIVISIONS, type Division } from "@/lib/zoho/transform";
+import { countByType } from "@/lib/zoho/typeBreakdown";
 
 // Live on-demand report for the "לידים לפי תאריך" tab -- runs its own Zoho
 // query for whatever range the user picks, separate from the daily
@@ -15,7 +16,8 @@ import { classifyPaidOrganic, classifyDivisionFromSource, aggregateInvalidLeads,
 export const maxDuration = 60;
 
 type SourceCount = { source: string; count: number };
-type DivisionGroup = { division: Division | null; total: number; sources: SourceCount[] };
+type TypeCount = { type: string; count: number };
+type DivisionGroup = { division: Division | null; total: number; sources: SourceCount[]; types: TypeCount[] };
 
 function groupByTypeAndDivision(rows: LeadRow[], kind: "paid" | "organic"): { total: number; divisions: DivisionGroup[] } {
   const kindRows = rows.filter((r) => classifyPaidOrganic(r.Lead_Source) === kind);
@@ -38,7 +40,7 @@ function groupByTypeAndDivision(rows: LeadRow[], kind: "paid" | "organic"): { to
       const sources = [...bySource.entries()]
         .map(([source, count]) => ({ source, count }))
         .sort((a, b) => b.count - a.count);
-      return { division, total: divRows.length, sources };
+      return { division, total: divRows.length, sources, types: countByType(divRows) };
     })
     // Always show all 5 real divisions (even at 0, like the mockup) --
     // only drop the unclassified (division=null) bucket when it's empty.

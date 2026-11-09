@@ -14,6 +14,7 @@ import { LeadsByDateTab } from "@/components/dashboard/LeadsByDateTab";
 import { BranchTab } from "@/components/dashboard/BranchTab";
 import { RepsTab } from "@/components/dashboard/RepsTab";
 import { DataOpsBar } from "@/components/dashboard/DataOpsBar";
+import { TypeBreakdownCard } from "@/components/dashboard/TypeBreakdownCard";
 import type { DashboardData } from "@/lib/dashboard/getDashboardData";
 import { DIVISIONS, type Division } from "@/lib/zoho/transform";
 
@@ -147,6 +148,8 @@ export function DashboardShell({ data, month }: { data: DashboardData; month: st
                   workDaysElapsed={data.workDaysElapsed}
                   workDaysInMonth={data.workDaysInMonth}
                 />
+
+                {division === "tech" && <TypeBreakdownCard division={division} month={month} />}
 
                 <div className="real-card">
                   <div className="real-head">

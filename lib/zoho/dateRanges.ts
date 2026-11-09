@@ -91,3 +91,14 @@ export function workDaysBetween(start: Date, endInclusive: Date): number {
 export function daysInMonth(monthDate: Date): number {
   return new Date(Date.UTC(monthDate.getUTCFullYear(), monthDate.getUTCMonth() + 1, 0)).getUTCDate();
 }
+
+// Range for a "YYYY-MM" month picked on the dashboard: the current month is
+// capped at yesterday (standing rule), any past month runs to its last day.
+export function monthRangeFor(month: string, today: Date = new Date()): MonthRange {
+  const [y, m] = month.split("-").map(Number);
+  const isCurrent = today.getUTCFullYear() === y && today.getUTCMonth() === m - 1;
+  if (isCurrent) return currentMonthToYesterday(today);
+  // previousMonthFull(d) returns the month before d -- pass the 1st of the
+  // month AFTER the picked one.
+  return previousMonthFull(new Date(Date.UTC(y, m, 1)));
+}
