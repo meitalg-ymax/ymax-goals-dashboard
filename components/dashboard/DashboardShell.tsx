@@ -186,6 +186,7 @@ export function DashboardShell({ data, month }: { data: DashboardData; month: st
         <BranchTab
           branchMetrics={data.branchMetrics}
           branchDivisionMetrics={data.branchDivisionMetrics}
+          branchChannelMetrics={data.branchChannelMetrics}
           branchRepMetrics={data.branchRepMetrics}
           rapidRevenueByBranch={data.rapidRevenueByBranch}
           rapidRepRevenueByBranch={data.rapidRepRevenueByBranch}

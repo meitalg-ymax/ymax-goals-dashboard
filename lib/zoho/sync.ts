@@ -31,6 +31,8 @@ import {
   aggregateBranchRepClosings,
   aggregateBranchRepDivisionArrivals,
   aggregateBranchRepDivisionClosings,
+  classifyChannel,
+  CHANNELS,
   type MetricRow,
 } from "./transform";
 
@@ -212,11 +214,32 @@ async function syncRange(
     if (reasonsError) throw new Error(`Failed to insert zoho_invalid_lead_reasons: ${reasonsError.message}`);
   }
 
+  // Channel split for the branch tab's source filter (ממומן / אורגני /
+  // דיוורים): the same aggregators run over each channel's subset of rows,
+  // stored in the same tables under a "<metric>__<channel>" metric name (e.g.
+  // "arrivals__mailing"), so no schema change is needed. Every branch (and
+  // branch x division) combo is always written, zeros included, so upserts
+  // never leave a stale channel value behind.
+  const byChannel = <T extends { Lead_Source?: string }, M extends { metric: string }>(
+    rows: T[],
+    aggregate: (rows: T[]) => M[]
+  ): M[] =>
+    CHANNELS.flatMap((channel) =>
+      aggregate(rows.filter((r) => classifyChannel(r.Lead_Source) === channel)).map((m) => ({
+        ...m,
+        metric: `${m.metric}__${channel}`,
+      }))
+    );
+
   const branchMetrics = [
     ...aggregateBranchMeetings(branchMeetingRows),
     ...aggregateBranchArrivals(branchArrivalRows),
     ...aggregateBranchCoordinations(branchCoordinationRows),
     ...aggregateBranchClosings(branchClosingRows),
+    ...byChannel(branchMeetingRows, aggregateBranchMeetings),
+    ...byChannel(branchArrivalRows, aggregateBranchArrivals),
+    ...byChannel(branchCoordinationRows, aggregateBranchCoordinations),
+    ...byChannel(branchClosingRows, aggregateBranchClosings),
   ];
   const branchMetricUpserts = branchMetrics.map((m) => ({
     month: range.monthStartDateStr,
@@ -235,6 +258,9 @@ async function syncRange(
     ...aggregateBranchDivisionArrivals(branchArrivalRows),
     ...aggregateBranchDivisionCoordinations(branchCoordinationRows),
     ...aggregateBranchDivisionClosings(branchClosingRows),
+    ...byChannel(branchArrivalRows, aggregateBranchDivisionArrivals),
+    ...byChannel(branchCoordinationRows, aggregateBranchDivisionCoordinations),
+    ...byChannel(branchClosingRows, aggregateBranchDivisionClosings),
   ];
   const branchDivisionMetricUpserts = branchDivisionMetrics.map((m) => ({
     month: range.monthStartDateStr,

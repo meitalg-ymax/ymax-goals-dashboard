@@ -1,7 +1,45 @@
+import { useState } from "react";
 import { FunnelShape } from "@/components/dashboard/FunnelShape";
 import { formatCurrency, formatNumber } from "@/lib/metrics/format";
-import { BRANCHES, DIVISIONS, type Branch, type Division } from "@/lib/zoho/transform";
-import type { BranchMetrics, BranchDivisionMetrics, BranchRepMetrics } from "@/lib/dashboard/getDashboardData";
+import { BRANCHES, CHANNELS, DIVISIONS, type Branch, type Channel, type Division } from "@/lib/zoho/transform";
+import type {
+  BranchMetrics,
+  BranchDivisionMetrics,
+  BranchRepMetrics,
+  BranchChannelMetrics,
+} from "@/lib/dashboard/getDashboardData";
+
+// Source filter -- "funded_organic" is ממומן + אורגני together (everything
+// that isn't a mailing), the same cohort the division reports call
+// "ממומן+אורגני".
+type ChannelFilter = "all" | "funded_organic" | Channel;
+
+const CHANNEL_FILTERS: { id: ChannelFilter; label: string }[] = [
+  { id: "all", label: "כל המקורות" },
+  { id: "funded_organic", label: "ממומן + אורגני" },
+  { id: "paid", label: "ממומן" },
+  { id: "organic", label: "אורגני" },
+  { id: "mailing", label: "דיוורים" },
+];
+
+const CHANNEL_LABELS: Record<Channel, string> = { paid: "ממומן", organic: "אורגני", mailing: "דיוורים" };
+
+const sumBranchMetrics = (a: BranchMetrics, b: BranchMetrics): BranchMetrics => ({
+  meetings: a.meetings + b.meetings,
+  coordinations: a.coordinations + b.coordinations,
+  arrivals: a.arrivals + b.arrivals,
+  closings: a.closings + b.closings,
+  revenue: a.revenue + b.revenue,
+});
+
+const sumDivisionMetrics = (a: BranchDivisionMetrics, b: BranchDivisionMetrics): BranchDivisionMetrics => ({
+  coordinations: a.coordinations + b.coordinations,
+  arrivals: a.arrivals + b.arrivals,
+  closings: a.closings + b.closings,
+  revenue: a.revenue + b.revenue,
+});
+
+const pct = (part: number, whole: number) => (whole > 0 ? `${Math.round((part / whole) * 100)}%` : "—");
 
 const BRANCH_LABELS: Record<Branch, string> = {
   ramat_gan: "רמת גן",
@@ -44,6 +82,7 @@ function BranchCard({
   repBreakdown,
   rapidRevenue,
   rapidRepBreakdown,
+  filtered,
 }: {
   branch: Branch;
   metrics: BranchMetrics;
@@ -51,6 +90,10 @@ function BranchCard({
   repBreakdown: Record<string, BranchRepMetrics>;
   rapidRevenue: number;
   rapidRepBreakdown: Record<string, number>;
+  // A source filter is on -- reps and Rapid money aren't split by source, so
+  // they're hidden rather than shown as all-sources numbers next to filtered
+  // ones.
+  filtered: boolean;
 }) {
   const avgDeal = metrics.closings > 0 ? metrics.revenue / metrics.closings : 0;
   const activeDivisions = DIVISIONS.filter(
@@ -105,10 +148,12 @@ function BranchCard({
           <span className="mc-label">שווי עסקה ממוצע</span>
           <span className="mc-val">{avgDeal > 0 ? formatCurrency(avgDeal) : "—"}</span>
         </div>
-        <div className="money-cell">
-          <span className="mc-label">כסף ראפיד (הכל)</span>
-          <span className="mc-val">{rapidRevenue > 0 ? formatCurrency(rapidRevenue) : "—"}</span>
-        </div>
+        {!filtered && (
+          <div className="money-cell">
+            <span className="mc-label">כסף ראפיד (הכל)</span>
+            <span className="mc-val">{rapidRevenue > 0 ? formatCurrency(rapidRevenue) : "—"}</span>
+          </div>
+        )}
       </div>
 
       {activeDivisions.length > 0 && (
@@ -135,7 +180,7 @@ function BranchCard({
         </div>
       )}
 
-      {repRows.length > 0 && (
+      {!filtered && repRows.length > 0 && (
         <div className="branch-rep-table">
           <div className="branch-rep-header">
             <span>נציגה</span>
@@ -162,7 +207,7 @@ function BranchCard({
         </div>
       )}
 
-      {rapidRepRows.length > 0 && (
+      {!filtered && rapidRepRows.length > 0 && (
         <div className="branch-rep-table branch-rep-table-rapid">
           <div className="branch-rep-header">
             <span>יועצת (רפיד)</span>
@@ -186,16 +231,40 @@ function BranchCard({
 export function BranchTab({
   branchMetrics,
   branchDivisionMetrics,
+  branchChannelMetrics,
   branchRepMetrics,
   rapidRevenueByBranch,
   rapidRepRevenueByBranch,
 }: {
   branchMetrics: Record<Branch, BranchMetrics>;
   branchDivisionMetrics: Record<Branch, Record<Division, BranchDivisionMetrics>>;
+  branchChannelMetrics: Record<Channel, BranchChannelMetrics> | null;
   branchRepMetrics: Record<Branch, Record<string, BranchRepMetrics>>;
   rapidRevenueByBranch: Record<Branch, number>;
   rapidRepRevenueByBranch: Record<Branch, Record<string, number>>;
 }) {
+  const [channelFilter, setChannelFilter] = useState<ChannelFilter>("all");
+  const channelLabel = CHANNEL_FILTERS.find((f) => f.id === channelFilter)?.label;
+
+  // Numbers for the selected source: "all" is the existing unsplit data;
+  // "funded_organic" sums the paid and organic channels.
+  const channelsInFilter: Channel[] =
+    channelFilter === "funded_organic" ? ["paid", "organic"] : channelFilter === "all" ? [] : [channelFilter];
+  const filtered = branchChannelMetrics !== null && channelsInFilter.length > 0;
+  const metricsFor = (b: Branch): BranchMetrics =>
+    filtered
+      ? channelsInFilter.map((c) => branchChannelMetrics[c].branch[b]).reduce(sumBranchMetrics)
+      : branchMetrics[b];
+  const divisionsFor = (b: Branch): Record<Division, BranchDivisionMetrics> =>
+    filtered
+      ? (Object.fromEntries(
+          DIVISIONS.map((d) => [
+            d,
+            channelsInFilter.map((c) => branchChannelMetrics[c].division[b][d]).reduce(sumDivisionMetrics),
+          ])
+        ) as Record<Division, BranchDivisionMetrics>)
+      : branchDivisionMetrics[b];
+
   // Only branches with real activity this month -- so a branch that never
   // shows up in the field (e.g. חיפה, present in Zoho's picklist but unused
   // so far) doesn't render an all-zero card, and appears automatically the
@@ -204,11 +273,11 @@ export function BranchTab({
 
   const totals = activeBranches.reduce(
     (acc, b) => ({
-      meetings: acc.meetings + branchMetrics[b].meetings,
-      coordinations: acc.coordinations + branchMetrics[b].coordinations,
-      arrivals: acc.arrivals + branchMetrics[b].arrivals,
-      closings: acc.closings + branchMetrics[b].closings,
-      revenue: acc.revenue + branchMetrics[b].revenue,
+      meetings: acc.meetings + metricsFor(b).meetings,
+      coordinations: acc.coordinations + metricsFor(b).coordinations,
+      arrivals: acc.arrivals + metricsFor(b).arrivals,
+      closings: acc.closings + metricsFor(b).closings,
+      revenue: acc.revenue + metricsFor(b).revenue,
       rapidRevenue: acc.rapidRevenue + rapidRevenueByBranch[b],
     }),
     { meetings: 0, coordinations: 0, arrivals: 0, closings: 0, revenue: 0, rapidRevenue: 0 }
@@ -251,8 +320,66 @@ export function BranchTab({
         </p>
       </div>
 
+      <div className="reps-filters">
+        <div className="range-toggle" role="tablist" aria-label="סינון לפי מקור">
+          {CHANNEL_FILTERS.map((f) => (
+            <button
+              key={f.id}
+              type="button"
+              className={channelFilter === f.id ? "active" : undefined}
+              disabled={f.id !== "all" && branchChannelMetrics === null}
+              onClick={() => setChannelFilter(f.id)}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      {branchChannelMetrics === null && (
+        <p className="channel-note">הפילוח לפי מקור יופיע אחרי הסנכרון הבא מזוהו (כפתור &quot;רענון&quot;).</p>
+      )}
+      {filtered && (
+        <p className="channel-note">
+          מסונן לפי מקור הליד ({channelLabel}). פירוט הנציגות וכסף ראפיד מוסתרים, כי הם לא מפוצלים לפי מקור.
+        </p>
+      )}
+
+      {branchChannelMetrics !== null && (
+        <section className="channel-split">
+          <p className="section-label">הגעות לפי מקור — השוואת סניפים</p>
+          <div className="channel-split-table">
+            <div className="channel-split-header">
+              <span>סניף</span>
+              {CHANNELS.map((c) => (
+                <span key={c}>{CHANNEL_LABELS[c]}</span>
+              ))}
+              <span>סה״כ</span>
+            </div>
+            {activeBranches.map((b) => {
+              const total = branchMetrics[b].arrivals;
+              return (
+                <div className="channel-split-row" key={b}>
+                  <span className="channel-split-name">{BRANCH_LABELS[b]}</span>
+                  {CHANNELS.map((c) => {
+                    const n = branchChannelMetrics[c].branch[b].arrivals;
+                    return (
+                      <span key={c}>
+                        {formatNumber(n)} <small>{pct(n, total)}</small>
+                      </span>
+                    );
+                  })}
+                  <span>{formatNumber(total)}</span>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
       <section className="totals-strip">
-        <p className="section-label">סה״כ כל הסניפים</p>
+        <p className="section-label">
+          סה״כ כל הסניפים{filtered && ` · ${channelLabel}`}
+        </p>
         <div className="totals-grid">
           <div className="total-tile">
             <span className="tt-label">פגישות מתואמות</span>
@@ -276,10 +403,12 @@ export function BranchTab({
             <span className="tt-label">הכנסות CRM</span>
             <span className="tt-value">{formatCurrency(totals.revenue)}</span>
           </div>
-          <div className="total-tile total-tile-money">
-            <span className="tt-label">כסף ראפיד (הכל)</span>
-            <span className="tt-value">{formatCurrency(totals.rapidRevenue)}</span>
-          </div>
+          {!filtered && (
+            <div className="total-tile total-tile-money">
+              <span className="tt-label">כסף ראפיד (הכל)</span>
+              <span className="tt-value">{formatCurrency(totals.rapidRevenue)}</span>
+            </div>
+          )}
         </div>
       </section>
 
@@ -288,11 +417,12 @@ export function BranchTab({
           <BranchCard
             key={branch}
             branch={branch}
-            metrics={branchMetrics[branch]}
-            divisionBreakdown={branchDivisionMetrics[branch]}
+            metrics={metricsFor(branch)}
+            divisionBreakdown={divisionsFor(branch)}
             repBreakdown={branchRepMetrics[branch]}
             rapidRevenue={rapidRevenueByBranch[branch]}
             rapidRepBreakdown={rapidRepRevenueByBranch[branch]}
+            filtered={filtered}
           />
         ))}
       </section>

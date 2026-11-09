@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { DIVISIONS, BRANCHES, type Division, type Branch } from "@/lib/zoho/transform";
+import { DIVISIONS, BRANCHES, CHANNELS, type Division, type Branch, type Channel } from "@/lib/zoho/transform";
 import { workDaysBetween } from "@/lib/zoho/dateRanges";
 
 export type DivisionMetrics = {
@@ -82,6 +82,14 @@ export type BranchDivisionMetrics = { arrivals: number; coordinations: number; c
 
 const EMPTY_BRANCH_DIVISION_METRICS: BranchDivisionMetrics = { arrivals: 0, coordinations: 0, closings: 0, revenue: 0 };
 
+// Same branch / branch x division numbers, split by source channel (ממומן /
+// אורגני / דיוורים) -- stored by the sync as "<metric>__<channel>" rows in the
+// same two tables, see classifyChannel in transform.ts.
+export type BranchChannelMetrics = {
+  branch: Record<Branch, BranchMetrics>;
+  division: Record<Branch, Record<Division, BranchDivisionMetrics>>;
+};
+
 // Rep isn't a fixed enum (open Zoho picklist), so this is a plain dynamic
 // map rather than a Record<Branch, Record<Rep, ...>> keyed off a constant
 // list like BranchDivisionMetrics above.
@@ -115,6 +123,8 @@ export type DashboardData = {
   branchMetrics: Record<Branch, BranchMetrics>;
   branchDivisionMetrics: Record<Branch, Record<Division, BranchDivisionMetrics>>;
   branchRepMetrics: Record<Branch, Record<string, BranchRepMetrics>>;
+  // null until the first sync that writes channel rows has run for the month.
+  branchChannelMetrics: Record<Channel, BranchChannelMetrics> | null;
   rapidRevenueByBranch: Record<Branch, number>;
   rapidRepRevenueByBranch: Record<Branch, Record<string, number>>;
   repDivisionMetrics: RepDivisionMetricRow[];
@@ -329,7 +339,7 @@ export async function getDashboardData(month?: string): Promise<DashboardData> {
   ) as Record<Branch, BranchMetrics>;
   for (const row of branchMetricRows ?? []) {
     const branch = row.branch as Branch;
-    if (!branchMetrics[branch]) continue;
+    if (!branchMetrics[branch] || row.metric.includes("__")) continue;
     (branchMetrics[branch] as unknown as Record<string, number>)[row.metric] = row.value;
   }
 
@@ -345,9 +355,35 @@ export async function getDashboardData(month?: string): Promise<DashboardData> {
   for (const row of branchDivisionMetricRows ?? []) {
     const branch = row.branch as Branch;
     const division = row.division as Division;
-    if (!branchDivisionMetrics[branch]?.[division]) continue;
+    if (!branchDivisionMetrics[branch]?.[division] || row.metric.includes("__")) continue;
     (branchDivisionMetrics[branch][division] as unknown as Record<string, number>)[row.metric] = row.value;
   }
+
+  const emptyChannelMetrics = (): BranchChannelMetrics => ({
+    branch: Object.fromEntries(BRANCHES.map((b) => [b, { ...EMPTY_BRANCH_METRICS }])) as Record<Branch, BranchMetrics>,
+    division: Object.fromEntries(
+      BRANCHES.map((b) => [b, Object.fromEntries(DIVISIONS.map((d) => [d, { ...EMPTY_BRANCH_DIVISION_METRICS }]))])
+    ) as Record<Branch, Record<Division, BranchDivisionMetrics>>,
+  });
+  const channelMetrics = Object.fromEntries(CHANNELS.map((c) => [c, emptyChannelMetrics()])) as Record<
+    Channel,
+    BranchChannelMetrics
+  >;
+  let hasChannelRows = false;
+  for (const row of branchMetricRows ?? []) {
+    const [metric, channel] = (row.metric as string).split("__") as [string, Channel | undefined];
+    const target = channel && channelMetrics[channel]?.branch[row.branch as Branch];
+    if (!target) continue;
+    (target as unknown as Record<string, number>)[metric] = row.value;
+    hasChannelRows = true;
+  }
+  for (const row of branchDivisionMetricRows ?? []) {
+    const [metric, channel] = (row.metric as string).split("__") as [string, Channel | undefined];
+    const target = channel && channelMetrics[channel]?.division[row.branch as Branch]?.[row.division as Division];
+    if (!target) continue;
+    (target as unknown as Record<string, number>)[metric] = row.value;
+  }
+  const branchChannelMetrics = hasChannelRows ? channelMetrics : null;
 
   const branchRepMetrics = Object.fromEntries(BRANCHES.map((b) => [b, {} as Record<string, BranchRepMetrics>])) as Record<
     Branch,
@@ -415,6 +451,7 @@ export async function getDashboardData(month?: string): Promise<DashboardData> {
     workDaysInMonth,
     branchMetrics,
     branchDivisionMetrics,
+    branchChannelMetrics,
     branchRepMetrics,
     rapidRevenueByBranch,
     rapidRepRevenueByBranch,

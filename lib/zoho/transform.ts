@@ -102,6 +102,17 @@ export function isMailingSource(source: string | undefined): boolean {
   return (source ?? "").includes("דיוור");
 }
 
+// Three-way channel for the branch tab's source filter -- the same split the
+// division-level arrivals/closings use above: mailing first (Lead_Source
+// contains "דיוור"), then paid/organic by classifyPaidOrganic for the rest.
+export type Channel = "paid" | "organic" | "mailing";
+export const CHANNELS: Channel[] = ["paid", "organic", "mailing"];
+
+export function classifyChannel(source: string | undefined): Channel {
+  if (isMailingSource(source)) return "mailing";
+  return classifyPaidOrganic(source);
+}
+
 export function aggregateLeads(rows: LeadRow[]): MetricRow[] {
   const out: MetricRow[] = [];
   for (const division of DIVISIONS) {

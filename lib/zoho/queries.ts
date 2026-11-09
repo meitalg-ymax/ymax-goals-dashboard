@@ -214,11 +214,12 @@ export async function fetchClosingsForMonth(range: MonthRange): Promise<ClosingR
 // so these three queries mirror the leads/arrivals/closings ones above but
 // scoped to `field123456 is not null` instead of a division/type filter, and
 // select `type` too so the branch funnel can also be cross-tabbed by
-// division (see aggregateBranchDivision* in transform.ts).
-export type BranchMeetingRow = { id: string; field123456?: string };
+// division (see aggregateBranchDivision* in transform.ts), and `Lead_Source`
+// so it can be split by channel -- paid / organic / mailing (classifyChannel).
+export type BranchMeetingRow = { id: string; field123456?: string; Lead_Source?: string };
 
 export async function fetchBranchMeetingsForMonth(range: MonthRange): Promise<BranchMeetingRow[]> {
-  const query = `select id, field123456 from Leads where ${andAll([
+  const query = `select id, field123456, Lead_Source from Leads where ${andAll([
     `Created_Time >= '${range.monthStartDateTimeStr}'`,
     `Created_Time <= '${range.yesterdayEndDateTimeStr}'`,
     `field123456 is not null`,
@@ -229,6 +230,7 @@ export async function fetchBranchMeetingsForMonth(range: MonthRange): Promise<Br
 export type BranchArrivalRow = {
   id: string;
   field123456?: string;
+  Lead_Source?: string;
   type?: string;
   Lead_Status?: string;
   field13?: string;
@@ -236,7 +238,7 @@ export type BranchArrivalRow = {
 };
 
 export async function fetchBranchArrivalsForMonth(range: MonthRange): Promise<BranchArrivalRow[]> {
-  const query = `select id, field123456, type, Lead_Status, field13, field1234 from Leads where ${andAll([
+  const query = `select id, field123456, Lead_Source, type, Lead_Status, field13, field1234 from Leads where ${andAll([
     `field123456 is not null`,
     `Lead_Status in ('1לא נסגר','1נסגרה עסקה')`,
     `field13 >= '${range.monthStartDateTimeStr}'`,
@@ -245,7 +247,13 @@ export async function fetchBranchArrivalsForMonth(range: MonthRange): Promise<Br
   return runCoqlAll(query) as Promise<BranchArrivalRow[]>;
 }
 
-export type BranchCoordinationRow = { id: string; field123456?: string; type?: string; field1234?: string };
+export type BranchCoordinationRow = {
+  id: string;
+  field123456?: string;
+  Lead_Source?: string;
+  type?: string;
+  field1234?: string;
+};
 
 // תיאומים by branch -- same field91-range definition confirmed for the
 // division-level coordinations metric (292 for 1-7 Sep 2026, see
@@ -253,7 +261,7 @@ export type BranchCoordinationRow = { id: string; field123456?: string; type?: s
 // attached (field123456 is not null -- only true once a meeting is
 // scheduled for the lead, same as every other branch metric here).
 export async function fetchBranchCoordinationsForMonth(range: MonthRange): Promise<BranchCoordinationRow[]> {
-  const query = `select id, field123456, type, field1234 from Leads where ${andAll([
+  const query = `select id, field123456, Lead_Source, type, field1234 from Leads where ${andAll([
     `field123456 is not null`,
     `field91 >= '${range.monthStartDateTimeStr}'`,
     `field91 <= '${range.yesterdayEndDateTimeStr}'`,
@@ -264,6 +272,7 @@ export async function fetchBranchCoordinationsForMonth(range: MonthRange): Promi
 export type BranchClosingRow = {
   id: string;
   field123456?: string;
+  Lead_Source?: string;
   type?: string;
   Lead_Status?: string;
   field_16?: string;
@@ -272,7 +281,7 @@ export type BranchClosingRow = {
 };
 
 export async function fetchBranchClosingsForMonth(range: MonthRange): Promise<BranchClosingRow[]> {
-  const query = `select id, field123456, type, Lead_Status, field_16, field1234567, field1234 from Leads where ${andAll([
+  const query = `select id, field123456, Lead_Source, type, Lead_Status, field_16, field1234567, field1234 from Leads where ${andAll([
     `field123456 is not null`,
     `Lead_Status = '1נסגרה עסקה'`,
     `field_16 >= '${range.monthStartDateStr}'`,
