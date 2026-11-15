@@ -1,9 +1,29 @@
 // Standing rule (confirmed by Meital): any "current month" filter caps its
 // upper bound at yesterday, never month-end -- future-dated records/meetings
-// haven't happened yet. Note: +03:00 is Israel Daylight Time (roughly
-// Mar-Oct); winter months are actually +02:00 -- revisit if this sync is
-// still running into the winter and dates look off by an hour.
-const TZ_OFFSET = "+03:00";
+// haven't happened yet.
+//
+// Israel's UTC offset changes with daylight saving (+03:00 summer, +02:00
+// winter), so it's computed per date instead of hardcoded. Until 2026-11-15
+// this was a fixed "+03:00", which in winter shifted every range back an hour
+// (Nov 1-14 ymax leads: dashboard 489 vs. 491 real -- it pulled in 6 leads
+// from Oct 31 23:00-24:00 and dropped 8 from Nov 14 23:00-24:00).
+function israelOffset(dateStr: string, time: string): string {
+  // Probe at the wall-clock time minus 2h, read as UTC -- that's the real
+  // instant (or 1h before it in summer), so the eve of a switch-over day
+  // (e.g. 2026-10-24 23:59) still gets that night's own offset.
+  const probe = new Date(new Date(`${dateStr}T${time}Z`).getTime() - 2 * 3600 * 1000);
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Jerusalem",
+    timeZoneName: "longOffset",
+  }).formatToParts(probe);
+  const name = parts.find((p) => p.type === "timeZoneName")?.value ?? "GMT+02:00";
+  const m = name.match(/GMT([+-]\d{2}):?(\d{2})?/);
+  return m ? `${m[1]}:${m[2] ?? "00"}` : "+02:00";
+}
+
+function israelDateTime(dateStr: string, time: string): string {
+  return `${dateStr}T${time}${israelOffset(dateStr, time)}`;
+}
 
 function pad(n: number) {
   return String(n).padStart(2, "0");
@@ -36,8 +56,8 @@ export function currentMonthToYesterday(today: Date): MonthRange {
     monthDate,
     monthStartDateStr: toDateStr(monthDate),
     yesterdayDateStr: toDateStr(yesterday),
-    monthStartDateTimeStr: `${toDateStr(monthDate)}T00:00:00${TZ_OFFSET}`,
-    yesterdayEndDateTimeStr: `${toDateStr(yesterday)}T23:59:59${TZ_OFFSET}`,
+    monthStartDateTimeStr: israelDateTime(toDateStr(monthDate), "00:00:00"),
+    yesterdayEndDateTimeStr: israelDateTime(toDateStr(yesterday), "23:59:59"),
   };
 }
 
@@ -57,8 +77,8 @@ export function previousMonthFull(today: Date): MonthRange {
     monthDate,
     monthStartDateStr: toDateStr(monthDate),
     yesterdayDateStr: toDateStr(lastDay),
-    monthStartDateTimeStr: `${toDateStr(monthDate)}T00:00:00${TZ_OFFSET}`,
-    yesterdayEndDateTimeStr: `${toDateStr(lastDay)}T23:59:59${TZ_OFFSET}`,
+    monthStartDateTimeStr: israelDateTime(toDateStr(monthDate), "00:00:00"),
+    yesterdayEndDateTimeStr: israelDateTime(toDateStr(lastDay), "23:59:59"),
   };
 }
 
@@ -68,8 +88,8 @@ export function previousMonthFull(today: Date): MonthRange {
 // future-dated test lead, or a range that's already fully in the past).
 export function customDateTimeRange(fromDateStr: string, toDateStr: string) {
   return {
-    fromDateTimeStr: `${fromDateStr}T00:00:00${TZ_OFFSET}`,
-    toDateTimeStr: `${toDateStr}T23:59:59${TZ_OFFSET}`,
+    fromDateTimeStr: israelDateTime(fromDateStr, "00:00:00"),
+    toDateTimeStr: israelDateTime(toDateStr, "23:59:59"),
   };
 }
 
