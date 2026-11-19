@@ -2,9 +2,11 @@ import {
   classifyDivisionFromSource,
   classifyDivisionFromType,
   classifyPaidOrganic,
+  isCountedMailingLead,
+  normalizeType,
   type Division,
 } from "./transform";
-import type { LeadRow, InvalidLeadRow, CoordinationRow, ArrivalRow, ClosingRow } from "./queries";
+import type { LeadRow, InvalidLeadRow, CoordinationRow, ArrivalRow, ClosingRow, MailingLeadRow } from "./queries";
 
 // Per-`type` funnel inside one division (e.g. tech = acne / post acne /
 // pigmentation / anti aging / tech / body tech). Same classification rules
@@ -12,11 +14,14 @@ import type { LeadRow, InvalidLeadRow, CoordinationRow, ArrivalRow, ClosingRow }
 // that division's total:
 //  - leads: division by Lead_Source text (type fallback), then grouped by the
 //    lead's own `type` value -- "רק לידים לפי מקור ליד, השאר לפי TYPE".
+//  - mailing leads: the month's Tag-based mailing list (same rule as the
+//    קד"ב leads_mailing number), division by Lead_Source the same way.
 //  - invalid / תיאומים / הגעות / סגירות / הכנסה: division by `type`.
 export type TypeFunnelRow = {
   type: string;
   leadsFunded: number;
   leadsOrganic: number;
+  leadsMailing: number;
   invalidFunded: number;
   coordinations: number;
   arrivals: number;
@@ -27,7 +32,7 @@ export type TypeFunnelRow = {
 const NO_TYPE = "(ללא type)";
 
 function typeKey(type: string | undefined): string {
-  const t = (type ?? "").toLowerCase().trim();
+  const t = normalizeType(type);
   return t || NO_TYPE;
 }
 
@@ -35,6 +40,7 @@ export function aggregateTypeFunnel(
   division: Division,
   rows: {
     leads: LeadRow[];
+    mailingLeads: MailingLeadRow[];
     invalid: InvalidLeadRow[];
     coordinations: CoordinationRow[];
     arrivals: ArrivalRow[];
@@ -50,6 +56,7 @@ export function aggregateTypeFunnel(
         type: key,
         leadsFunded: 0,
         leadsOrganic: 0,
+        leadsMailing: 0,
         invalidFunded: 0,
         coordinations: 0,
         arrivals: 0,
@@ -65,6 +72,10 @@ export function aggregateTypeFunnel(
     if (classifyDivisionFromSource(r.Lead_Source, r.type) !== division) continue;
     if (classifyPaidOrganic(r.Lead_Source) === "paid") get(r.type).leadsFunded++;
     else get(r.type).leadsOrganic++;
+  }
+  for (const r of rows.mailingLeads) {
+    if (!isCountedMailingLead(r)) continue;
+    if (classifyDivisionFromSource(r.Lead_Source, r.type) === division) get(r.type).leadsMailing++;
   }
   for (const r of rows.invalid) {
     if (classifyDivisionFromType(r.type) === division) get(r.type).invalidFunded++;
@@ -82,9 +93,8 @@ export function aggregateTypeFunnel(
     row.revenue += r.field1234567 ?? 0;
   }
 
-  return [...acc.values()].sort(
-    (a, b) => b.leadsFunded + b.leadsOrganic - (a.leadsFunded + a.leadsOrganic) || b.revenue - a.revenue
-  );
+  const totalLeads = (r: TypeFunnelRow) => r.leadsFunded + r.leadsOrganic + r.leadsMailing;
+  return [...acc.values()].sort((a, b) => totalLeads(b) - totalLeads(a) || b.revenue - a.revenue);
 }
 
 // Count rows by `type` -- for the "מעקב לידים" tab's per-division cards.

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import {
   fetchLeadsForMonth,
+  fetchMailingLeadsForMonth,
   fetchInvalidLeadsForMonth,
   fetchCoordinationsForMonth,
   fetchArrivalsForMonth,
@@ -35,14 +36,15 @@ export async function GET(request: Request) {
   }
 
   try {
-    const [leads, invalid, coordinations, arrivals, closings] = await Promise.all([
+    const [leads, mailingLeads, invalid, coordinations, arrivals, closings] = await Promise.all([
       fetchLeadsForMonth(range),
+      fetchMailingLeadsForMonth(range),
       fetchInvalidLeadsForMonth(range),
       fetchCoordinationsForMonth(range),
       fetchArrivalsForMonth(range),
       fetchClosingsForMonth(range),
     ]);
-    const rows = aggregateTypeFunnel(division, { leads, invalid, coordinations, arrivals, closings });
+    const rows = aggregateTypeFunnel(division, { leads, mailingLeads, invalid, coordinations, arrivals, closings });
     return NextResponse.json({
       month,
       division,

@@ -2170,7 +2170,7 @@ footer {
   margin-top: 10px;
 }
 .type-funnel-table {
-  min-width: 760px;
+  min-width: 900px;
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -2178,7 +2178,7 @@ footer {
 .type-funnel-header,
 .type-funnel-row {
   display: grid;
-  grid-template-columns: 1.4fr repeat(9, 0.8fr);
+  grid-template-columns: 1.4fr repeat(12, 0.8fr);
   align-items: center;
   gap: 6px;
 }
@@ -2201,6 +2201,9 @@ footer {
 }
 .type-funnel-name {
   font-weight: 700;
+}
+.type-funnel-leads-total {
+  font-weight: 800;
 }
 .type-funnel-total {
   border-top: 2px solid var(--border);

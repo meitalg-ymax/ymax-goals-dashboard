@@ -72,8 +72,18 @@ export function classifyDivisionFromSource(source: string | undefined, type?: st
 // count (invalid leads, arrivals, closings, revenue). tech is a rollup of
 // several type values (TECH_TYPE_VALUES); mira dry is its own division, no
 // longer folded into tech (confirmed 2026-08-11).
+// Canonical form of a `type` value: lowercase, trimmed, hyphens/underscores/
+// repeated spaces collapsed to one space. A new tech campaign started sending
+// "anti-aging" (hyphen) on 2026-11-02 alongside the existing "anti aging" --
+// without this the hyphen variant fell through to null and its תיאומים/
+// הגעות/סגירות were silently dropped from tech (leads still counted, being
+// classified by Lead_Source), and the TYPE breakdown showed two rows.
+export function normalizeType(type: string | undefined): string {
+  return (type ?? "").toLowerCase().replace(/[-_\s]+/g, " ").trim();
+}
+
 export function classifyDivisionFromType(type: string | undefined): Division | null {
-  const t = (type ?? "").toLowerCase().trim();
+  const t = normalizeType(type);
   if (t === "mira dry") return "mira_dry";
   if (TECH_TYPE_VALUES.includes(t)) return "tech";
   // "body tech" is a malformed picklist value that shows up in real Zoho data
@@ -422,7 +432,7 @@ export function aggregateBranchRepDivisionClosings(rows: BranchClosingRow[]): Br
 // Zoho report filter: type not empty AND מעקב פניה not one of
 // MAILING_LEAD_FIELD90_EXCLUSIONS (empty field90 counts). Lead count only;
 // funnel metrics keep every tagged lead.
-function isCountedMailingLead(row: MailingLeadRow): boolean {
+export function isCountedMailingLead(row: MailingLeadRow): boolean {
   if (!(row.type ?? "").trim()) return false;
   return !MAILING_LEAD_FIELD90_EXCLUSIONS.includes(row.field90 ?? "");
 }

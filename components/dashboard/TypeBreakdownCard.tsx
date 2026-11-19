@@ -11,14 +11,16 @@ function pct(n: number, d: number): string {
   return d > 0 ? `${((n / d) * 100).toFixed(0)}%` : "—";
 }
 
-const COLUMNS = ["TYPE", "לידים ממומן", "לידים אורגני", "לא תקינים", "תיאומים", "הגעות", "סגירות", "% סגירה", "הכנסה", "עסקה ממוצעת"];
+const COLUMNS = ["TYPE", "סה״כ לידים", "ממומן", "אורגני", "דיוור", "לא תקינים", "תיאומים", "הגעות", "סגירות", "% סגירה", "הכנסה", "עסקה ממוצעת"];
 
 function Row({ r, className }: { r: TypeFunnelRow; className?: string }) {
   return (
     <div className={`type-funnel-row ${className ?? ""}`}>
       <span className="type-funnel-name">{r.type}</span>
+      <span className="type-funnel-leads-total">{formatNumber(r.leadsFunded + r.leadsOrganic + r.leadsMailing)}</span>
       <span>{formatNumber(r.leadsFunded)}</span>
       <span>{formatNumber(r.leadsOrganic)}</span>
+      <span>{formatNumber(r.leadsMailing)}</span>
       <span>{formatNumber(r.invalidFunded)}</span>
       <span>{formatNumber(r.coordinations)}</span>
       <span>{formatNumber(r.arrivals)}</span>
@@ -65,13 +67,14 @@ export function TypeBreakdownCard({ division, month }: { division: Division; mon
           type: "סה״כ",
           leadsFunded: a.leadsFunded + r.leadsFunded,
           leadsOrganic: a.leadsOrganic + r.leadsOrganic,
+          leadsMailing: a.leadsMailing + r.leadsMailing,
           invalidFunded: a.invalidFunded + r.invalidFunded,
           coordinations: a.coordinations + r.coordinations,
           arrivals: a.arrivals + r.arrivals,
           closings: a.closings + r.closings,
           revenue: a.revenue + r.revenue,
         }),
-        { type: "סה״כ", leadsFunded: 0, leadsOrganic: 0, invalidFunded: 0, coordinations: 0, arrivals: 0, closings: 0, revenue: 0 }
+        { type: "סה״כ", leadsFunded: 0, leadsOrganic: 0, leadsMailing: 0, invalidFunded: 0, coordinations: 0, arrivals: 0, closings: 0, revenue: 0 }
       )
     : null;
 
@@ -111,7 +114,7 @@ export function TypeBreakdownCard({ division, month }: { division: Division; mon
       <p className="real-note">
         {data?.to ? `טווח: ${data.from} עד ${data.to}. ` : ""}
         <strong style={{ color: "var(--ink)" }}>לידים</strong> משויכים לחטיבה לפי מקור הליד ומפוצלים לפי ה-type
-        שלהם; <strong style={{ color: "var(--ink)" }}>שאר העמודות</strong> לפי type — אותם כללים כמו בקד״ב, כך שהסה״כ
+        שלהם (ממומן/אורגני = נוצרו החודש; דיוור = תגית החודש, כמו בקד״ב); <strong style={{ color: "var(--ink)" }}>שאר העמודות</strong> לפי type — אותם כללים כמו בקד״ב, כך שהסה״כ
         תואם למספרי החטיבה. זו תמונת חודש (כמו הקד״ב), לא מעקב קבוצה: הגעות וסגירות החודש יכולות להיות של לידים
         מחודשים קודמים. לא תקינים = ממומן בלבד. הכנסה = סכום עסקה ב-Zoho (בלי ספא/שדרוגים/ירוקים).
       </p>
